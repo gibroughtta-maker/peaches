@@ -458,6 +458,8 @@
     line-height: 1.6;
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -484,26 +486,17 @@
       <div class="login-wrap" style="padding-top:20px;justify-content:flex-start;">
         <div class="gold-rule"></div>
         <div class="login-tagline">Welcome back,<br>lovely.</div>
-        <div class="login-sub">Enter your mobile to access your rewards</div>
+        <div class="login-sub">Enter your mobile and password to access your rewards</div>
         <div class="input-group">
           <label>Mobile Number</label>
-          <input type="tel" value="+44 7700 900 123" readonly>
+          <input type="tel" id="login-phone" placeholder="+44 7700 900 123" autocomplete="tel">
         </div>
-        <button class="btn-primary">Send Verification Code</button>
-        <div class="divider"></div>
-        <div class="section-title" style="margin-bottom:16px;">Verify your code</div>
-        <div class="otp-row">
-          <div class="otp-box filled">3</div>
-          <div class="otp-box filled">7</div>
-          <div class="otp-box filled">4</div>
-          <div class="otp-box cursor"></div>
-          <div class="otp-box"></div>
-          <div class="otp-box"></div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password">
         </div>
-        <button class="btn-primary">Continue →</button>
-        <p style="font-size:11px;color:var(--text-light);margin-top:20px;text-align:center;">
-          New to Peaches? We'll create your account<br>automatically on first visit.
-        </p>
+        <div id="login-error" style="color:var(--red-soft);font-size:12px;margin-bottom:12px;display:none;"></div>
+        <button class="btn-primary" id="login-btn" onclick="customerLogin()">Sign In →</button>
       </div>
     </div>
   </div>
@@ -526,11 +519,11 @@
       <!-- greeting + points -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
         <div>
-          <div class="greeting" style="font-size:20px;">Hello, Emma ✦</div>
-          <div class="greeting-sub" style="margin-bottom:0;">Member since Feb 2026</div>
+          <div class="greeting" style="font-size:20px;">Hello, <span id="cust-name">…</span> ✦</div>
+          <div class="greeting-sub" style="margin-bottom:0;">Member since <span id="cust-since">…</span></div>
         </div>
         <div style="text-align:right;">
-          <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--pink);line-height:1;">340</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--pink);line-height:1;"><span id="cust-points">…</span></div>
           <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points</div>
         </div>
       </div>
@@ -631,11 +624,11 @@
       </div>
 
       <div class="qr-card">
-        <img class="qr-img" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMTAgMjEwIiB3aWR0aD0iMjEwIiBoZWlnaHQ9IjIxMCI+CjxyZWN0IHdpZHRoPSIyMTAiIGhlaWdodD0iMjEwIiBmaWxsPSJ3aGl0ZSIvPgo8IS0tIFRvcC1sZWZ0IGZpbmRlciBwYXR0ZXJuIC0tPgo8cmVjdCB4PSIxMCIgeT0iMTAiIHdpZHRoPSI0OSIgaGVpZ2h0PSI0OSIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNyIgeT0iMTciIHdpZHRoPSIzNSIgaGVpZ2h0PSIzNSIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIGZpbGw9IiMxYTFhMWEiLz4KPCEtLSBUb3AtcmlnaHQgZmluZGVyIHBhdHRlcm4gLS0+CjxyZWN0IHg9IjE1MSIgeT0iMTAiIHdpZHRoPSI0OSIgaGVpZ2h0PSI0OSIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNTgiIHk9IjE3IiB3aWR0aD0iMzUiIGhlaWdodD0iMzUiIGZpbGw9IndoaXRlIi8+CjxyZWN0IHg9IjE2NSIgeT0iMjQiIHdpZHRoPSIyMSIgaGVpZ2h0PSIyMSIgZmlsbD0iIzFhMWExYSIvPgo8IS0tIEJvdHRvbS1sZWZ0IGZpbmRlciBwYXR0ZXJuIC0tPgo8cmVjdCB4PSIxMCIgeT0iMTUxIiB3aWR0aD0iNDkiIGhlaWdodD0iNDkiIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTciIHk9IjE1OCIgd2lkdGg9IjM1IiBoZWlnaHQ9IjM1IiBmaWxsPSJ3aGl0ZSIvPgo8cmVjdCB4PSIyNCIgeT0iMTY1IiB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIGZpbGw9IiMxYTFhMWEiLz4KPCEtLSBUaW1pbmcgcGF0dGVybnMgLS0+CjxyZWN0IHg9IjY2IiB5PSIxMCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI4MCIgeT0iMTAiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iOTQiIHk9IjEwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEwOCIgeT0iMTAiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTIyIiB5PSIxMCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI2NiIgeT0iMjQiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iODAiIHk9IjI0IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEwOCIgeT0iMjQiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTIyIiB5PSIyNCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI2NiIgeT0iMzgiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iOTQiIHk9IjM4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEyMiIgeT0iMzgiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iODAiIHk9IjUyIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9Ijk0IiB5PSI1MiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxMDgiIHk9IjUyIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjwhLS0gVmVydGljYWwgdGltaW5nIC0tPgo8cmVjdCB4PSIxMCIgeT0iNjYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTAiIHk9IjgwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEwIiB5PSI5NCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxMCIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEwIiB5PSIxMjIiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMjQiIHk9IjY2IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjI0IiB5PSI4MCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIyNCIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjM4IiB5PSI2NiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIzOCIgeT0iOTQiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMzgiIHk9IjEyMiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI1MiIgeT0iNjYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iNTIiIHk9IjgwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjUyIiB5PSI5NCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8IS0tIERhdGEgbW9kdWxlcyAtIG1pZGRsZSBhcmVhIHJhbmRvbS1pc2ggcGF0dGVybiAtLT4KPHJlY3QgeD0iNjYiIHk9IjY2IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjgwIiB5PSI2NiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI5NCIgeT0iNjYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTA4IiB5PSI2NiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxMjIiIHk9IjY2IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEzNiIgeT0iNjYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iNjYiIHk9IjgwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9Ijk0IiB5PSI4MCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxMjIiIHk9IjgwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE1MCIgeT0iODAiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTY0IiB5PSI4MCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI2NiIgeT0iOTQiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iODAiIHk9Ijk0IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEwOCIgeT0iOTQiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTM2IiB5PSI5NCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNTAiIHk9Ijk0IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE3OCIgeT0iOTQiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iODAiIHk9IjEwOCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI5NCIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEyMiIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEzNiIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE2NCIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE3OCIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjY2IiB5PSIxMjIiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iOTQiIHk9IjEyMiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxMDgiIHk9IjEyMiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNTAiIHk9IjEyMiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNzgiIHk9IjEyMiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI2NiIgeT0iMTM2IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjgwIiB5PSIxMzYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTA4IiB5PSIxMzYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTIyIiB5PSIxMzYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTM2IiB5PSIxMzYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTY0IiB5PSIxMzYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPCEtLSBCb3R0b20gcmlnaHQgZGF0YSAtLT4KPHJlY3QgeD0iNjYiIHk9IjE1MCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI5NCIgeT0iMTUwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjEyMiIgeT0iMTUwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE1MCIgeT0iMTUwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE3OCIgeT0iMTUwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjgwIiB5PSIxNjQiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iOTQiIHk9IjE2NCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxMzYiIHk9IjE2NCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNjQiIHk9IjE2NCIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSI2NiIgeT0iMTc4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9Ijk0IiB5PSIxNzgiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTA4IiB5PSIxNzgiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTUwIiB5PSIxNzgiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTc4IiB5PSIxNzgiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPCEtLSBSaWdodCBzaWRlIHRpbWluZyAtLT4KPHJlY3QgeD0iMTkyIiB5PSI2NiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxOTIiIHk9IjgwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE5MiIgeT0iMTA4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE5MiIgeT0iMTM2IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE5MiIgeT0iMTUwIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE5MiIgeT0iMTc4IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjwhLS0gQm90dG9tIHRpbWluZyAtLT4KPHJlY3QgeD0iMTUwIiB5PSI2NiIgd2lkdGg9IjciIGhlaWdodD0iNyIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNjQiIHk9IjY2IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiBmaWxsPSIjMWExYTFhIi8+CjxyZWN0IHg9IjE3OCIgeT0iNjYiIHdpZHRoPSI3IiBoZWlnaHQ9IjciIGZpbGw9IiMxYTFhMWEiLz4KPHJlY3QgeD0iMTUxIiB5PSIxNTEiIHdpZHRoPSI0OSIgaGVpZ2h0PSI0OSIgZmlsbD0iIzFhMWExYSIvPgo8cmVjdCB4PSIxNTgiIHk9IjE1OCIgd2lkdGg9IjM1IiBoZWlnaHQ9IjM1IiBmaWxsPSJ3aGl0ZSIvPgo8cmVjdCB4PSIxNjUiIHk9IjE2NSIgd2lkdGg9IjIxIiBoZWlnaHQ9IjIxIiBmaWxsPSIjMWExYTFhIi8+Cjwvc3ZnPg==" alt="QR Code">
-        <div class="qr-name">Emma Clarke</div>
-        <div class="qr-id">Member ID · PCH-7700-9001</div>
+        <div id="qr-canvas-wrap" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
+        <div class="qr-name" id="qr-cust-name">…</div>
+        <div class="qr-id" id="qr-cust-id">Member ID · …</div>
         <div class="qr-pts-pill">
-          <div class="qr-pts-num">340</div>
+          <div class="qr-pts-num" id="qr-cust-points">…</div>
           <div class="qr-pts-label">Peach Points</div>
         </div>
       </div>
@@ -678,61 +671,133 @@
         </div>
         <div style="margin-left:auto;text-align:right;">
           <div class="points-label" style="text-align:right;color:var(--text-light);margin-bottom:2px;">Balance</div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--pink);">340</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--pink);" id="hist-balance">…</div>
         </div>
       </div>
-      <div class="month-divider">April 2026</div>
-      <ul class="tx-list">
-        <li class="tx-item">
-          <div class="tx-info"><div class="tx-name">Hollywood Wax</div><div class="tx-meta">by Sophie · 14 Apr 2026</div></div>
-          <div class="tx-points plus">+50</div>
-        </li>
-        <li class="tx-item">
-          <div class="tx-info"><div class="tx-name">Eyebrow Shape</div><div class="tx-meta">by Sophie · 14 Apr 2026</div></div>
-          <div class="tx-points plus">+20</div>
-        </li>
-      </ul>
-      <div class="month-divider">March 2026</div>
-      <ul class="tx-list">
-        <li class="tx-item">
-          <div class="tx-info"><div class="tx-name">Reward Redeemed</div><div class="tx-meta">by Reception · 2 Mar 2026</div></div>
-          <div class="tx-points minus">−100</div>
-        </li>
-        <li class="tx-item">
-          <div class="tx-info"><div class="tx-name">Full Leg Wax</div><div class="tx-meta">by Sophie · 1 Mar 2026</div></div>
-          <div class="tx-points plus">+60</div>
-        </li>
-      </ul>
-      <div class="month-divider">February 2026</div>
-      <ul class="tx-list">
-        <li class="tx-item">
-          <div class="tx-info"><div class="tx-name">Hollywood Wax</div><div class="tx-meta">by Lauren · 18 Feb 2026</div></div>
-          <div class="tx-points plus">+50</div>
-        </li>
-        <li class="tx-item">
-          <div class="tx-info"><div class="tx-name">Welcome Bonus</div><div class="tx-meta">by Reception · 1 Feb 2026</div></div>
-          <div class="tx-points plus">+200</div>
-        </li>
-      </ul>
+      <div id="tx-history-container">
+        <div style="text-align:center;color:var(--text-light);font-size:13px;padding:40px 0;">Loading…</div>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- SCREEN 4: THERAPIST -->
 <script>
-function show(id) {
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentCustomer = null;
+
+function phoneToEmail(phone) {
+  return phone.replace(/\D/g, '') + '@peaches.internal';
+}
+
+function _showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   const ids = ['login','customer','qr','history'];
   document.querySelectorAll('.proto-nav button').forEach((b,i) => b.classList.toggle('active', ids[i]===id));
   window.scrollTo({top:0,behavior:'smooth'});
 }
+
+function show(id) {
+  _showScreen(id);
+  if (id === 'qr' && currentCustomer) renderQRCode();
+  if (id === 'history' && currentCustomer) loadTransactionHistory();
+}
+
+async function customerLogin() {
+  const phone = document.getElementById('login-phone').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  const { error } = await supabase.auth.signInWithPassword({ email: phoneToEmail(phone), password });
+  if (error) {
+    errEl.textContent = 'Invalid phone number or password.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Sign In →';
+    return;
+  }
+  await loadCustomerData();
+  show('customer');
+}
+
+async function loadCustomerData() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { show('login'); return; }
+  const { data } = await supabase.from('customers').select('*').eq('id', user.id).single();
+  if (!data) { show('login'); return; }
+  currentCustomer = data;
+  renderCustomerUI();
+}
+
+function renderCustomerUI() {
+  const c = currentCustomer;
+  document.getElementById('cust-name').textContent = c.full_name.split(' ')[0];
+  document.getElementById('cust-points').textContent = c.points;
+  document.getElementById('cust-since').textContent =
+    new Date(c.member_since).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+  document.getElementById('hist-balance').textContent = c.points;
+}
+
+function renderQRCode() {
+  const c = currentCustomer;
+  document.getElementById('qr-cust-name').textContent = c.full_name;
+  document.getElementById('qr-cust-id').textContent = 'Member ID · PCH-' + c.id.slice(0,8).toUpperCase();
+  document.getElementById('qr-cust-points').textContent = c.points;
+  const wrap = document.getElementById('qr-canvas-wrap');
+  wrap.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  QRCode.toCanvas(canvas, c.id, { width: 180, color: { dark: '#2C1A1A', light: '#FFFFFF' } }, (err) => {
+    if (!err) { canvas.style.borderRadius = '8px'; wrap.appendChild(canvas); }
+  });
+}
+
+async function loadTransactionHistory() {
+  const { data } = await supabase.from('transactions')
+    .select('*, staff(full_name)').eq('customer_id', currentCustomer.id)
+    .order('created_at', { ascending: false }).limit(50);
+  const container = document.getElementById('tx-history-container');
+  if (!data || !data.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-light);font-size:13px;padding:40px 0;">No transactions yet.</div>';
+    return;
+  }
+  const byMonth = {};
+  data.forEach(tx => {
+    const key = new Date(tx.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(tx);
+  });
+  container.innerHTML = Object.entries(byMonth).map(([month, txs]) => `
+    <div class="month-divider">${month}</div>
+    <ul class="tx-list">${txs.map(tx => `
+      <li class="tx-item">
+        <div class="tx-info">
+          <div class="tx-name">${tx.note || (tx.type === 'redeem' ? 'Reward Redeemed' : 'Points Earned')}</div>
+          <div class="tx-meta">by ${tx.staff ? tx.staff.full_name : 'Reception'} · ${new Date(tx.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+        </div>
+        <div class="tx-points ${tx.points_delta > 0 ? 'plus' : 'minus'}">${tx.points_delta > 0 ? '+' : ''}${tx.points_delta}</div>
+      </li>`).join('')}
+    </ul>`).join('');
+}
+
 document.querySelectorAll('.toggle-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
   });
 });
+
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) { await loadCustomerData(); show('customer'); }
+  else _showScreen('login');
+})();
 </script>
 </body>
 </html>
