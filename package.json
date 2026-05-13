@@ -1,0 +1,8 @@
+{
+  "name": "peaches-loyalty-static",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-config.js",
+    "test": "node --test tests/*.test.js"
+  }
+}
