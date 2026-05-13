@@ -5,7 +5,13 @@
     return;
   }
 
-  window.supabase = window.supabaseJs.createClient(
+  const supabaseFactory = window.supabaseJs || window.supabase;
+  if (!supabaseFactory?.createClient) {
+    console.error("Missing Supabase JS library.");
+    return;
+  }
+
+  window.supabase = supabaseFactory.createClient(
     cfg.SUPABASE_URL,
     cfg.SUPABASE_ANON_KEY,
   );

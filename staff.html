@@ -359,7 +359,7 @@
   .btn-redeem.ready { opacity: 1; }
 </style>
 </head>
-<body>
+<body data-required-role="therapist">
 
 <div class="proto-nav">
   <button class="active" onclick="show('dashboard')">① Dashboard</button>
@@ -722,6 +722,10 @@
   </div>
 </div>
 
+<script src="/js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth-router.js"></script>
 <script>
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));

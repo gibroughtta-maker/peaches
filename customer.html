@@ -459,7 +459,7 @@
   }
 </style>
 </head>
-<body>
+<body data-required-role="customer">
 
 <div class="proto-nav">
   <button class="active" onclick="show('login')">① Login</button>
@@ -484,9 +484,9 @@
       <div class="login-wrap" style="padding-top:20px;justify-content:flex-start;">
         <div class="gold-rule"></div>
         <div class="login-tagline">Welcome back,<br>lovely.</div>
-        <div class="login-sub">Enter your mobile to access your rewards</div>
+        <div class="login-sub">Enter your email to access your rewards</div>
         <div class="input-group">
-          <label>Mobile Number</label>
+          <label>Email Address</label>
           <input type="tel" value="+44 7700 900 123" readonly>
         </div>
         <button class="btn-primary">Send Verification Code</button>
@@ -719,6 +719,10 @@
 </div>
 
 <!-- SCREEN 4: THERAPIST -->
+<script src="/js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth-router.js"></script>
 <script>
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
