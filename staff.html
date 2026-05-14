@@ -375,6 +375,7 @@
   <button onclick="show('client-detail')">② Client Detail</button>
   <button onclick="show('scan-screen')">③ Scan QR — Add Points</button>
   <button onclick="show('voucher-screen')">④ Redeem Voucher</button>
+  <button onclick="signOut()" style="border-color:#888;color:#888;">Sign Out</button>
 </div>
 
 <!-- SCREEN 0: STAFF LOGIN -->
@@ -654,6 +655,15 @@ function show(id) {
   if (id === 'scan-screen') startScanner();
   else stopScanner();
   if (id === 'voucher-screen') renderVoucherScreen();
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  currentStaff = null;
+  currentClientId = null;
+  allClients = [];
+  stopScanner();
+  _showScreen('staff-login');
 }
 
 async function staffLogin() {

@@ -468,6 +468,7 @@
   <button onclick="show('customer')">② My Points</button>
   <button onclick="show('qr')">③ My QR Code</button>
   <button onclick="show('history')">④ History</button>
+  <button onclick="signOut()" style="border-color:#888;color:#888;">Sign Out</button>
 </div>
 
 <!-- SCREEN 1: LOGIN -->
@@ -705,6 +706,12 @@ function show(id) {
   _showScreen(id);
   if (id === 'qr' && currentCustomer) renderQRCode();
   if (id === 'history' && currentCustomer) loadTransactionHistory();
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  currentCustomer = null;
+  _showScreen('login');
 }
 
 async function customerLogin() {
