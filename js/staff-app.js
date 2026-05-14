@@ -3,6 +3,93 @@
   let selectedCustomer = null;
   let vouchers = [];
   let selectedVoucher = null;
+  let qrScanner = null;
+  let scanning = false;
+
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  function extractCustomerId(decoded) {
+    if (!decoded) return null;
+    const text = String(decoded).trim();
+    if (UUID_REGEX.test(text)) return text.toLowerCase();
+    try {
+      const url = new URL(text);
+      const fromQuery = url.searchParams.get("customer");
+      if (fromQuery && UUID_REGEX.test(fromQuery)) return fromQuery.toLowerCase();
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  }
+
+  function setScanStatus(message) {
+    const status = document.querySelector("#scan-status span:last-child");
+    if (status) status.textContent = message;
+  }
+
+  async function stopScanner() {
+    if (!qrScanner || !scanning) return;
+    try { await qrScanner.stop(); } catch (e) { /* ignore */ }
+    scanning = false;
+  }
+
+  async function startScanner() {
+    if (!window.Html5Qrcode) {
+      setScanStatus("Scanner library not available.");
+      return;
+    }
+    const reader = document.getElementById("qr-reader");
+    if (!reader) return;
+    if (scanning) return;
+
+    const foundSection = document.getElementById("found-section");
+    if (foundSection) foundSection.style.display = "none";
+    setScanStatus("Starting camera...");
+
+    if (!qrScanner) qrScanner = new window.Html5Qrcode("qr-reader");
+    try {
+      await qrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        onScanSuccess,
+        () => {},
+      );
+      scanning = true;
+      setScanStatus("Point camera at client's QR code");
+    } catch (error) {
+      console.error(error);
+      setScanStatus("Camera access denied. Allow camera permissions and retry.");
+    }
+  }
+
+  async function onScanSuccess(decodedText) {
+    const customerId = extractCustomerId(decodedText);
+    if (!customerId) {
+      setScanStatus("QR code not recognised. Try another one.");
+      return;
+    }
+    await stopScanner();
+    setScanStatus("Client found.");
+    const opened = await selectCustomerById(customerId);
+    if (!opened) {
+      setScanStatus("Customer not found in database.");
+      await startScanner();
+      return;
+    }
+    const foundSection = document.getElementById("found-section");
+    if (foundSection && selectedCustomer) {
+      foundSection.style.display = "block";
+      const av = document.getElementById("found-av");
+      if (av) av.textContent = initials(selectedCustomer.full_name);
+      const nameEl = foundSection.querySelector(".found-name");
+      if (nameEl) nameEl.textContent = selectedCustomer.full_name;
+      const ptsEl = foundSection.querySelector(".found-pts strong");
+      if (ptsEl) ptsEl.textContent = `${selectedCustomer.points} pts`;
+    }
+  }
+
+  window.startScanner = startScanner;
+  window.stopScanner = stopScanner;
 
   function setText(selector, text, root) {
     (root || document).querySelectorAll(selector).forEach((node) => {

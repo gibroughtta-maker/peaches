@@ -76,9 +76,8 @@ test("Supabase client supports the v2 CDN global", () => {
 test("customer app renders QR per customer and keeps history back arrow-only", () => {
   const source = read("js/customer-app.js");
 
-  assert.match(source, /function customerStaffUrl/);
   assert.match(source, /function renderCustomerQr/);
-  assert.match(source, /new URL\("staff\.html"/);
-  assert.match(source, /searchParams\.set\("customer"/);
+  assert.match(source, /const payload = customer\.id/);
+  assert.doesNotMatch(source, /function customerStaffUrl/);
   assert.doesNotMatch(source, />Back<\/button>/);
 });

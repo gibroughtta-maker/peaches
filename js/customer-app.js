@@ -19,17 +19,11 @@
     return parts.join(" · ") || voucher.description || "Peaches reward";
   }
 
-  function customerStaffUrl(customer) {
-    const url = new URL("staff.html", window.location.href);
-    url.searchParams.set("customer", customer.id);
-    return url.toString();
-  }
-
   function renderCustomerQr(customer) {
     const qrNode = document.querySelector(".qr-code");
     if (!qrNode) return;
 
-    const payload = customerStaffUrl(customer);
+    const payload = customer.id;
     qrNode.dataset.customerId = customer.id;
     qrNode.dataset.qrPayload = payload;
 
