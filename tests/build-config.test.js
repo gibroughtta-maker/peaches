@@ -8,6 +8,9 @@ const repoRoot = path.resolve(__dirname, "..");
 const configPath = path.join(repoRoot, "js", "config.js");
 
 test("build-config writes Supabase runtime config from environment", () => {
+  const previousConfig = fs.existsSync(configPath)
+    ? fs.readFileSync(configPath, "utf8")
+    : null;
   fs.rmSync(configPath, { force: true });
 
   const result = spawnSync(process.execPath, ["scripts/build-config.js"], {
@@ -26,5 +29,9 @@ test("build-config writes Supabase runtime config from environment", () => {
     'window.PEACHES_CONFIG = {\n  SUPABASE_URL: "https://example.supabase.co",\n  SUPABASE_ANON_KEY: "test_anon_key"\n};\n',
   );
 
-  fs.rmSync(configPath, { force: true });
+  if (previousConfig === null) {
+    fs.rmSync(configPath, { force: true });
+  } else {
+    fs.writeFileSync(configPath, previousConfig);
+  }
 });
