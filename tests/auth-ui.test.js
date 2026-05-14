@@ -81,3 +81,11 @@ test("customer app renders QR per customer and keeps history back arrow-only", (
   assert.doesNotMatch(source, /function customerStaffUrl/);
   assert.doesNotMatch(source, />Back<\/button>/);
 });
+
+test("staff QR scan stays on scan screen after selecting the customer", () => {
+  const source = read("js/staff-app.js");
+
+  assert.match(source, /selectCustomerById\(customerId,\s*\{\s*navigate:\s*false\s*\}\)/);
+  assert.match(source, /function selectCustomerById\(customerId,\s*options = \{\}\)/);
+  assert.match(source, /if \(navigate\) window\.show\?\.\("client-detail"\)/);
+});

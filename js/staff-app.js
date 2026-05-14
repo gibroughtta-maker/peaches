@@ -70,7 +70,7 @@
     }
     await stopScanner();
     setScanStatus("Client found.");
-    const opened = await selectCustomerById(customerId);
+    const opened = await selectCustomerById(customerId, { navigate: false });
     if (!opened) {
       setScanStatus("Customer not found in database.");
       await startScanner();
@@ -200,14 +200,15 @@
     setText("#dashboard .stat-card-num", String(customers.length), document.querySelector("#dashboard .stat-card"));
   }
 
-  async function selectCustomerById(customerId) {
+  async function selectCustomerById(customerId, options = {}) {
+    const { navigate = true } = options;
     if (!customerId) return false;
     selectedCustomer = customers.find((customer) => customer.id === customerId)
       || await window.peachesData.getCustomer(customerId);
     if (!selectedCustomer) return false;
     const transactions = await window.peachesData.listTransactions(selectedCustomer.id, 10);
     renderClientDetail(transactions);
-    window.show?.("client-detail");
+    if (navigate) window.show?.("client-detail");
     return true;
   }
 
