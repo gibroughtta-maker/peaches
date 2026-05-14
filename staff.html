@@ -588,13 +588,14 @@
           </div>
           <div style="margin-left:auto;color:var(--pink);font-size:18px;">✓</div>
         </div>
-        <div style="margin-bottom:8px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points to Add</div>
+        <div style="margin-bottom:8px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points to Award</div>
         <div class="pts-input-wrap">
-          <input type="number" id="points-input" value="50" min="1" oninput="updateConfirmBtn()">
-          <span class="pts-unit-label">Points</span>
+          <input type="number" id="points-input" placeholder="0" min="0" step="1" value="0" oninput="updateConfirmBtn()" style="font-size:16px;text-align:center;">
+          <span class="pts-unit-label">points</span>
         </div>
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:12px;text-align:center;">Enter the number of points to award</div>
         <input class="note-input" id="note-input" type="text" placeholder="Note — e.g. Hollywood Wax">
-        <button class="btn-confirm" id="confirm-pts-btn" onclick="confirmAddPoints()">Confirm +50 pts →</button>
+        <button class="btn-confirm" id="confirm-pts-btn" onclick="confirmAddPoints()">Confirm +0 pts →</button>
       </div>
     </div>
   </div>
@@ -874,8 +875,9 @@ function renderVoucherScreen() {
             <div class="voucher-info">
               <div class="voucher-name">${v.name}</div>
               <div class="voucher-desc">${v.description || ''}</div>
+              <div style="font-size:11px;color:var(--gold);margin-top:4px;font-weight:500;">Value: £${v.retail_value}</div>
             </div>
-            <div class="voucher-cost"><div class="voucher-pts">${v.points_cost}</div><div class="voucher-pts-label">pts</div></div>
+            <div class="voucher-cost"><div class="voucher-pts" style="font-weight:600;">${v.points_cost}</div><div class="voucher-pts-label">pts</div></div>
             <div class="check-circle">✓</div>
           </div>`).join('')}
       </div>` : ''}
@@ -887,7 +889,8 @@ function renderVoucherScreen() {
             <div class="voucher-emoji" style="filter:grayscale(1)">${v.emoji || '💅'}</div>
             <div class="voucher-info">
               <div class="voucher-name" style="color:var(--text-mid)">${v.name}</div>
-              <div class="voucher-desc">${v.description || ''} · needs ${v.points_cost} pts</div>
+              <div class="voucher-desc">${v.description || ''}</div>
+              <div style="font-size:11px;color:var(--text-light);margin-top:4px;">Value: £${v.retail_value} · Need ${v.points_cost - client.points} more pts</div>
             </div>
             <div class="voucher-cost"><div class="voucher-pts" style="color:var(--text-light)">${v.points_cost}</div><div class="voucher-pts-label">pts</div></div>
             <div style="font-size:14px;color:var(--text-light)">🔒</div>

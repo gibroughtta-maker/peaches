@@ -782,14 +782,24 @@ async function loadTransactionHistory() {
   });
   container.innerHTML = Object.entries(byMonth).map(([month, txs]) => `
     <div class="month-divider">${month}</div>
-    <ul class="tx-list">${txs.map(tx => `
-      <li class="tx-item">
-        <div class="tx-info">
-          <div class="tx-name">${tx.note || (tx.type === 'redeem' ? 'Reward Redeemed' : 'Points Earned')}</div>
-          <div class="tx-meta">by ${tx.staff ? tx.staff.full_name : 'Reception'} · ${new Date(tx.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-        </div>
-        <div class="tx-points ${tx.points_delta > 0 ? 'plus' : 'minus'}">${tx.points_delta > 0 ? '+' : ''}${tx.points_delta}</div>
-      </li>`).join('')}
+    <ul class="tx-list">${txs.map(tx => {
+      const expiryDate = new Date(new Date(tx.created_at).getTime() + 180*24*60*60*1000);
+      const expiryStr = expiryDate.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+      return `
+        <li class="tx-item">
+          <div class="tx-info">
+            <div class="tx-name">
+              ${tx.note || (tx.type === 'redeem' ? 'Reward Redeemed' : 'Points Earned')}
+              ${tx.type === 'redeem' ? ' ✓' : ''}
+            </div>
+            <div class="tx-meta">
+              by ${tx.staff ? tx.staff.full_name : 'Reception'} · ${new Date(tx.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+              ${tx.type === 'redeem' ? `<br>Expires ${expiryStr}` : ''}
+            </div>
+          </div>
+          <div class="tx-points ${tx.points_delta > 0 ? 'plus' : 'minus'}">${tx.points_delta > 0 ? '+' : ''}${tx.points_delta}</div>
+        </li>`;
+    }).join('')}
     </ul>`).join('');
 }
 
