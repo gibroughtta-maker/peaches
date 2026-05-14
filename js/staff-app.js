@@ -5,6 +5,7 @@
   let selectedVoucher = null;
   let qrScanner = null;
   let scanning = false;
+  let addPointsUnlockedByScan = false;
 
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -42,8 +43,7 @@
     if (!reader) return;
     if (scanning) return;
 
-    const foundSection = document.getElementById("found-section");
-    if (foundSection) foundSection.style.display = "none";
+    addPointsUnlockedByScan = false;
     setScanStatus("Starting camera...");
 
     if (!qrScanner) qrScanner = new window.Html5Qrcode("qr-reader");
@@ -69,23 +69,17 @@
       return;
     }
     await stopScanner();
-    setScanStatus("Client found.");
+    setScanStatus("Client found. Opening add points...");
     const opened = await selectCustomerById(customerId, { navigate: false });
     if (!opened) {
       setScanStatus("Customer not found in database.");
       await startScanner();
       return;
     }
-    const foundSection = document.getElementById("found-section");
-    if (foundSection && selectedCustomer) {
-      foundSection.style.display = "block";
-      const av = document.getElementById("found-av");
-      if (av) av.textContent = initials(selectedCustomer.full_name);
-      const nameEl = foundSection.querySelector(".found-name");
-      if (nameEl) nameEl.textContent = selectedCustomer.full_name;
-      const ptsEl = foundSection.querySelector(".found-pts strong");
-      if (ptsEl) ptsEl.textContent = `${selectedCustomer.points} pts`;
-    }
+    resetAddPointsForm();
+    addPointsUnlockedByScan = true;
+    renderAddPointsScreen();
+    window.show?.("add-points-screen");
   }
 
   window.startScanner = startScanner;
@@ -169,9 +163,8 @@
     setText("#client-detail .detail-title", selectedCustomer.full_name);
     setText("#client-detail .detail-sub", selectedCustomer.phone);
     setText("#client-detail .pts-band-val", String(selectedCustomer.points));
-    setText(".found-name", selectedCustomer.full_name);
-    setText(".found-pts", `Current balance: ${selectedCustomer.points} pts`);
     setText("#voucher-screen .detail-sub", `${selectedCustomer.full_name} - ${selectedCustomer.points} pts available`);
+    renderAddPointsScreen();
 
     const txList = document.querySelector("#client-detail .tx-list");
     if (txList) {
@@ -183,6 +176,22 @@
     renderVouchers();
   }
 
+  function resetAddPointsForm() {
+    const pointsInput = document.getElementById("add-points-input");
+    const noteInput = document.getElementById("add-points-note");
+    if (pointsInput) pointsInput.value = "";
+    if (noteInput) noteInput.value = "";
+  }
+
+  function renderAddPointsScreen() {
+    if (!selectedCustomer) return;
+    setText("#add-points-screen .detail-sub", `${selectedCustomer.full_name} - ${selectedCustomer.points} pts`);
+    setText("#add-points-screen .found-name", selectedCustomer.full_name);
+    setText("#add-points-screen .found-pts", `Current balance: ${selectedCustomer.points} pts`);
+    const avatar = document.getElementById("add-points-av");
+    if (avatar) avatar.textContent = initials(selectedCustomer.full_name);
+  }
+
   function renderDashboard(nextCustomers) {
     customers = nextCustomers;
     const list = document.querySelector("#dashboard .client-list");
@@ -191,6 +200,7 @@
     list.querySelectorAll(".client-row").forEach((row) => {
       row.addEventListener("click", async () => {
         selectedCustomer = customers.find((customer) => customer.id === row.dataset.customerId);
+        addPointsUnlockedByScan = false;
         const transactions = await window.peachesData.listTransactions(selectedCustomer.id, 10);
         renderClientDetail(transactions);
         window.show?.("client-detail");
@@ -206,6 +216,7 @@
     selectedCustomer = customers.find((customer) => customer.id === customerId)
       || await window.peachesData.getCustomer(customerId);
     if (!selectedCustomer) return false;
+    if (navigate) addPointsUnlockedByScan = false;
     const transactions = await window.peachesData.listTransactions(selectedCustomer.id, 10);
     renderClientDetail(transactions);
     if (navigate) window.show?.("client-detail");
@@ -265,19 +276,30 @@
       });
     }
 
-    const confirmButton = document.querySelector(".btn-confirm");
+    const confirmButton = document.getElementById("confirm-add-points");
     if (confirmButton) {
       confirmButton.addEventListener("click", async (event) => {
         event.preventDefault();
-        const pointsInput = document.querySelector(".pts-input-wrap input");
-        const noteInput = document.querySelector(".note-input");
+        const pointsInput = document.getElementById("add-points-input");
+        const noteInput = document.getElementById("add-points-note");
+        const delta = Number(pointsInput?.value || 0);
+        if (!addPointsUnlockedByScan) {
+          alert("Scan the customer's QR code before adding points.");
+          return;
+        }
+        if (!Number.isFinite(delta) || delta <= 0) {
+          alert("Enter the points to add.");
+          return;
+        }
         confirmButton.disabled = true;
         try {
           await window.peachesData.addPoints({
             customerId: selectedCustomer?.id,
-            delta: Number(pointsInput?.value || 0),
+            delta,
             note: noteInput?.value || "Points added",
           });
+          resetAddPointsForm();
+          addPointsUnlockedByScan = false;
           await refreshSelectedCustomer();
           window.show?.("client-detail");
         } catch (error) {

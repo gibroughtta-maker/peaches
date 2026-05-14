@@ -21,11 +21,11 @@
     const content = {
       customer: {
         copy: "Enter your email to access your rewards",
-        note: "New to Peaches? We will create your account automatically after first sign-in. Staff access is assigned by Peaches in Supabase.",
+        note: "New to Peaches? We will create your account automatically after first sign-in. Staff access is approved by Peaches in Supabase.",
       },
       staff: {
-        copy: "Use your staff email. Access opens only after Peaches assigns your staff record.",
-        note: "Selecting Staff does not grant access. Staff status is checked from Supabase after sign-in; everyone else opens as a customer.",
+        copy: "Use your staff email. Access opens after Peaches adds your account to Supabase staff.",
+        note: "Selecting Staff does not grant access. Staff status is checked after sign-in; everyone else opens as a customer.",
       },
     };
 

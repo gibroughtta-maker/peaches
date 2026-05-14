@@ -16,7 +16,7 @@ test("index renders one secure email login with customer and staff intent copy",
   assert.match(html, /data-login-intent/);
   assert.match(html, /Customer/);
   assert.match(html, /Staff/);
-  assert.match(html, /Staff access is assigned by Peaches/);
+  assert.match(html, /Staff access is approved by Peaches/);
   assert.match(html, /type="email"/);
   assert.match(html, /Continue with email/);
   assert.match(html, /class="phone-frame"/);
@@ -82,10 +82,15 @@ test("customer app renders QR per customer and keeps history back arrow-only", (
   assert.doesNotMatch(source, />Back<\/button>/);
 });
 
-test("staff QR scan stays on scan screen after selecting the customer", () => {
+test("staff QR scan opens add-points screen after selecting the customer", () => {
   const source = read("js/staff-app.js");
+  const html = read("staff.html");
 
   assert.match(source, /selectCustomerById\(customerId,\s*\{\s*navigate:\s*false\s*\}\)/);
   assert.match(source, /function selectCustomerById\(customerId,\s*options = \{\}\)/);
-  assert.match(source, /if \(navigate\) window\.show\?\.\("client-detail"\)/);
+  assert.match(source, /addPointsUnlockedByScan = true/);
+  assert.match(source, /Scan the customer's QR code before adding points/);
+  assert.match(source, /window\.show\?\.\("add-points-screen"\)/);
+  assert.match(html, /id="add-points-screen"/);
+  assert.match(html, /id="confirm-add-points"/);
 });

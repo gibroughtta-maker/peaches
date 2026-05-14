@@ -550,28 +550,38 @@
         <span class="scanner-status-dot"></span>
         <span>Point camera at client's QR code</span>
       </div>
+    </div>
+  </div>
+</div>
 
-      <!-- Client found card (shown after scan) -->
-      <div id="found-section" style="display:none;">
-        <div style="margin-bottom:4px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Client Found</div>
-        <div class="found-card">
-          <div class="found-av" id="found-av">??</div>
-          <div>
-            <div class="found-name">Select customer</div>
-            <div class="found-pts">Current balance: <strong>0 pts</strong></div>
-          </div>
-          <div style="margin-left:auto;color:var(--pink);font-size:18px;">✓</div>
-        </div>
-
-        <!-- Points input -->
-        <div style="margin-bottom:8px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points to Add</div>
-        <div class="pts-input-wrap">
-          <input type="number" value="0" min="1" placeholder="0">
-          <span class="pts-unit-label">Points</span>
-        </div>
-        <input class="note-input" type="text" placeholder="Note — e.g. Hollywood Wax">
-        <button class="btn-confirm">Confirm pts →</button>
+<!-- ADD POINTS AFTER QR SCAN -->
+<div id="add-points-screen" class="screen">
+<div class="phone-frame">
+    <div class="detail-topbar">
+      <button class="back-circle" onclick="show('scan-screen')">←</button>
+      <div>
+        <div class="detail-title">Add Points</div>
+        <div class="detail-sub">Scan a client QR first</div>
       </div>
+    </div>
+
+    <div class="scroll-body" style="padding:20px 20px 32px;">
+      <div style="margin-bottom:4px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Client Verified</div>
+      <div class="found-card">
+        <div class="found-av" id="add-points-av">??</div>
+        <div>
+          <div class="found-name">Select customer</div>
+          <div class="found-pts">Current balance: 0 pts</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:8px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points to Add</div>
+      <div class="pts-input-wrap">
+        <input id="add-points-input" type="number" min="1" step="1" inputmode="numeric" placeholder="0">
+        <span class="pts-unit-label">Points</span>
+      </div>
+      <input id="add-points-note" class="note-input" type="text" placeholder="Note - e.g. Hollywood Wax">
+      <button id="confirm-add-points" class="btn-confirm">Confirm pts →</button>
     </div>
   </div>
 </div>
@@ -674,7 +684,7 @@
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const ids = ['dashboard','client-detail','scan-screen','voucher-screen'];
+  const ids = ['dashboard','client-detail','scan-screen','add-points-screen','voucher-screen'];
   window.scrollTo({top:0,behavior:'smooth'});
   if (id === 'scan-screen' && typeof window.startScanner === 'function') {
     window.startScanner();
