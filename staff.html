@@ -357,21 +357,58 @@
     opacity: .4; transition: opacity .2s;
   }
   .btn-redeem.ready { opacity: 1; }
+  .input-group { width: 100%; margin-bottom: 16px; }
+  .input-group label { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-light); margin-bottom: 6px; }
+  .input-group input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Jost', sans-serif; font-size: 14px; color: var(--text-dark); outline: none; background: var(--cream); }
+  .input-group input:focus { border-color: var(--pink); }
+  .btn-primary { width: 100%; padding: 15px; background: var(--pink); border: none; border-radius: 10px; font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: white; cursor: pointer; box-shadow: 0 4px 16px rgba(212,39,122,.3); }
+  .btn-primary:hover { background: var(--pink-dark); }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
 <div class="proto-nav">
-  <button class="active" onclick="show('dashboard')">① Dashboard</button>
+  <button onclick="show('staff-login')">⓪ Login</button>
+  <button onclick="show('dashboard')">① Dashboard</button>
   <button onclick="show('client-detail')">② Client Detail</button>
   <button onclick="show('scan-screen')">③ Scan QR — Add Points</button>
   <button onclick="show('voucher-screen')">④ Redeem Voucher</button>
+  <button onclick="signOut()" style="border-color:#888;color:#888;">Sign Out</button>
+</div>
+
+<!-- SCREEN 0: STAFF LOGIN -->
+<div id="staff-login" class="screen active">
+  <div class="screen-label">
+    <h2>Staff — Login</h2>
+    <p>Employee sign-in</p>
+  </div>
+  <div class="phone-frame">
+    <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+    <div class="phone-header" style="background:var(--pink);padding:20px 20px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:white;letter-spacing:.05em;">Peaches</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.7);letter-spacing:.15em;text-transform:uppercase;">Staff Portal</div>
+    </div>
+    <div class="scroll-body" style="padding:24px 20px;">
+      <div class="input-group">
+        <label>Email</label>
+        <input type="email" id="staff-email" placeholder="sophie@peachessalon.co.uk" autocomplete="email">
+      </div>
+      <div class="input-group">
+        <label>Password</label>
+        <input type="password" id="staff-password" placeholder="Enter your password" autocomplete="current-password">
+      </div>
+      <div id="staff-login-error" style="color:var(--red-soft);font-size:12px;margin-bottom:12px;display:none;"></div>
+      <button class="btn-primary" id="staff-login-btn" onclick="staffLogin()">Sign In →</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════
      SCREEN 1 — DASHBOARD
 ══════════════════════════════════════ -->
-<div id="dashboard" class="screen active">
+<div id="dashboard" class="screen">
   <div class="screen-label">
     <h2>Therapist — Dashboard</h2>
     <p>Home screen after staff login</p>
@@ -384,13 +421,13 @@
     </div>
     <div class="staff-hero">
       <div class="staff-hero-inner">
-        <div class="avatar-lg">S</div>
+        <div class="avatar-lg" id="avatar-initial">S</div>
         <div class="staff-info">
-          <div class="staff-name">Sophie Anderson</div>
-          <div class="staff-role">Therapist · Glasgow</div>
+          <div class="staff-name" id="staff-name-display">…</div>
+          <div class="staff-role" id="staff-role-display">…</div>
         </div>
         <div style="text-align:right;">
-          <div class="stat-num">12</div>
+          <div class="stat-num" id="stat-hero-clients">…</div>
           <div class="stat-label">Clients</div>
         </div>
       </div>
@@ -398,19 +435,19 @@
     <div class="scroll-body">
       <div class="stats-row">
         <div class="stat-card pink">
-          <div class="stat-card-num">12</div>
+          <div class="stat-card-num" id="stat-my-clients">…</div>
           <div class="stat-card-label">My Clients</div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-num">+340</div>
+          <div class="stat-card-num" id="stat-pts-today">…</div>
           <div class="stat-card-label">Pts Given Today</div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-num">3</div>
+          <div class="stat-card-num" id="stat-visits-today">…</div>
           <div class="stat-card-label">Visits Today</div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-num">520</div>
+          <div class="stat-card-num" id="stat-top-pts">…</div>
           <div class="stat-card-label">Top Client Pts</div>
         </div>
       </div>
@@ -420,45 +457,10 @@
       </div>
       <div class="search-wrap">
         <span class="search-icon">⌕</span>
-        <input type="text" placeholder="Search by name or phone…">
+        <input type="text" id="client-search" placeholder="Search by name or phone…" oninput="filterClients(this.value)">
       </div>
-      <div class="client-list">
-        <div class="client-row active-row" onclick="show('client-detail')">
-          <div class="client-av">EC</div>
-          <div class="client-info">
-            <div class="client-name">Emma Clarke</div>
-            <div class="client-phone">+44 7700 900 123</div>
-          </div>
-          <div class="client-pts"><div class="pts-big">340</div><div class="pts-tiny">pts</div></div>
-          <span class="chevron">›</span>
-        </div>
-        <div class="client-row" onclick="show('client-detail')">
-          <div class="client-av">JM</div>
-          <div class="client-info">
-            <div class="client-name">Jessica Mills</div>
-            <div class="client-phone">+44 7911 123 456</div>
-          </div>
-          <div class="client-pts"><div class="pts-big">180</div><div class="pts-tiny">pts</div></div>
-          <span class="chevron">›</span>
-        </div>
-        <div class="client-row" onclick="show('client-detail')">
-          <div class="client-av">RP</div>
-          <div class="client-info">
-            <div class="client-name">Rachel Park</div>
-            <div class="client-phone">+44 7500 654 321</div>
-          </div>
-          <div class="client-pts"><div class="pts-big">520</div><div class="pts-tiny">pts</div></div>
-          <span class="chevron">›</span>
-        </div>
-        <div class="client-row" onclick="show('client-detail')">
-          <div class="client-av">AT</div>
-          <div class="client-info">
-            <div class="client-name">Amy Thomson</div>
-            <div class="client-phone">+44 7823 456 789</div>
-          </div>
-          <div class="client-pts"><div class="pts-big">95</div><div class="pts-tiny">pts</div></div>
-          <span class="chevron">›</span>
-        </div>
+      <div class="client-list" id="client-list-container">
+        <div style="text-align:center;color:var(--text-light);font-size:13px;padding:24px 0;">Loading clients…</div>
       </div>
     </div>
     <div class="bottom-nav">
@@ -491,24 +493,24 @@
     <div class="detail-topbar">
       <button class="back-circle" onclick="show('dashboard')">←</button>
       <div>
-        <div class="detail-title">Emma Clarke</div>
-        <div class="detail-sub">+44 7700 900 123</div>
+        <div class="detail-title" id="detail-cust-name">…</div>
+        <div class="detail-sub" id="detail-cust-phone">…</div>
       </div>
     </div>
     <div class="pts-band">
       <div class="pts-band-inner">
         <div>
-          <div class="pts-band-val">340</div>
+          <div class="pts-band-val" id="detail-pts-balance">…</div>
           <div class="pts-band-label">Peach Points</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
           <div style="background:rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;text-align:center;">
             <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;text-transform:uppercase;">Since</div>
-            <div style="font-size:13px;color:white;margin-top:2px;">Feb 2026</div>
+            <div style="font-size:13px;color:white;margin-top:2px;" id="detail-cust-since">…</div>
           </div>
           <div style="background:rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;text-align:center;">
-            <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;text-transform:uppercase;">Visits</div>
-            <div style="font-size:13px;color:white;margin-top:2px;">7 total</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;text-transform:uppercase;">Voucher</div>
+            <div style="font-size:13px;color:white;margin-top:2px;" id="detail-redeemed-count">—</div>
           </div>
         </div>
       </div>
@@ -528,32 +530,8 @@
       <div class="section-hdr" style="margin-bottom:12px;">
         <span>Point History</span>
       </div>
-      <ul class="tx-list">
-        <li class="tx-item">
-          <div class="tx-dot plus"></div>
-          <div class="tx-info"><div class="tx-name">Hollywood Wax</div><div class="tx-meta">14 Apr 2026 · by Sophie</div></div>
-          <div class="tx-pts plus">+50</div>
-        </li>
-        <li class="tx-item">
-          <div class="tx-dot plus"></div>
-          <div class="tx-info"><div class="tx-name">Eyebrow Shape</div><div class="tx-meta">14 Apr 2026 · by Sophie</div></div>
-          <div class="tx-pts plus">+20</div>
-        </li>
-        <li class="tx-item">
-          <div class="tx-dot minus"></div>
-          <div class="tx-info"><div class="tx-name">Free Eyebrow Tint — Redeemed</div><div class="tx-meta">2 Mar 2026 · by Sophie</div></div>
-          <div class="tx-pts minus">−200</div>
-        </li>
-        <li class="tx-item">
-          <div class="tx-dot plus"></div>
-          <div class="tx-info"><div class="tx-name">Full Leg Wax</div><div class="tx-meta">1 Mar 2026 · by Sophie</div></div>
-          <div class="tx-pts plus">+60</div>
-        </li>
-        <li class="tx-item">
-          <div class="tx-dot plus"></div>
-          <div class="tx-info"><div class="tx-name">Welcome Bonus</div><div class="tx-meta">1 Feb 2026 · by Reception</div></div>
-          <div class="tx-pts plus">+200</div>
-        </li>
+      <ul class="tx-list" id="client-tx-list">
+        <li style="text-align:center;color:var(--text-light);font-size:13px;padding:20px 0;list-style:none;">Loading…</li>
       </ul>
     </div>
     <div class="bottom-nav">
@@ -593,39 +571,32 @@
 
     <div class="scroll-body" style="padding:20px 20px 32px;">
 
-      <!-- Camera viewport -->
-      <div class="scanner-viewport">
-        <div class="scanner-grid"></div>
-        <div class="scanner-corners"><div class="sc-b"></div></div>
-        <div class="scanner-line"></div>
-        <div class="scanner-hint">Align QR code within frame</div>
+      <!-- Real QR scanner -->
+      <div id="qr-reader" style="width:100%;border-radius:12px;overflow:hidden;margin-bottom:12px;"></div>
+      <div id="scan-status" style="text-align:center;font-size:12px;color:var(--text-light);padding:8px 0;margin-bottom:12px;">
+        Point camera at client's QR code
       </div>
 
-      <!-- Scanning status -->
-      <div class="scanner-status">
-        <span class="scanner-status-dot"></span>
-        <span>Scanning…</span>
-      </div>
-
-      <!-- Client found card (shown after scan) -->
-      <div style="margin-bottom:4px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Client Found</div>
-      <div class="found-card">
-        <div class="found-av">EC</div>
-        <div>
-          <div class="found-name">Emma Clarke</div>
-          <div class="found-pts">Current balance: <strong>340 pts</strong></div>
+      <!-- Client found section (hidden until scan succeeds) -->
+      <div id="found-section" style="display:none;">
+        <div style="margin-bottom:4px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Client Found</div>
+        <div class="found-card">
+          <div class="found-av" id="found-av">EC</div>
+          <div>
+            <div class="found-name" id="found-name">…</div>
+            <div class="found-pts">Current balance: <strong id="found-pts">…</strong></div>
+          </div>
+          <div style="margin-left:auto;color:var(--pink);font-size:18px;">✓</div>
         </div>
-        <div style="margin-left:auto;color:var(--pink);font-size:18px;">✓</div>
+        <div style="margin-bottom:8px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points to Award</div>
+        <div class="pts-input-wrap">
+          <input type="number" id="points-input" placeholder="0" min="0" step="1" value="0" oninput="updateConfirmBtn()" style="font-size:16px;text-align:center;">
+          <span class="pts-unit-label">points</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-light);margin-bottom:12px;text-align:center;">Enter the number of points to award</div>
+        <input class="note-input" id="note-input" type="text" placeholder="Note — e.g. Hollywood Wax">
+        <button class="btn-confirm" id="confirm-pts-btn" onclick="confirmAddPoints()">Confirm +0 pts →</button>
       </div>
-
-      <!-- Points input -->
-      <div style="margin-bottom:8px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points to Add</div>
-      <div class="pts-input-wrap">
-        <input type="number" value="50" min="1">
-        <span class="pts-unit-label">Points</span>
-      </div>
-      <input class="note-input" type="text" placeholder="Note — e.g. Hollywood Wax" value="Hollywood Wax">
-      <button class="btn-confirm" onclick="show('client-detail')">Confirm +50 pts →</button>
     </div>
   </div>
 </div>
@@ -650,99 +621,319 @@
 
     <div class="scroll-body" style="padding:20px 20px 32px;">
 
-      <div style="margin-bottom:14px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Unlocked Rewards</div>
-
-      <div class="voucher-list">
-
-        <!-- Unlocked: selectable -->
-        <div class="voucher-card selected" id="v1" onclick="selectVoucher('v1')">
-          <div class="voucher-emoji">💅</div>
-          <div class="voucher-info">
-            <div class="voucher-name">Free Eyebrow Tint</div>
-            <div class="voucher-desc">With any wax treatment</div>
-          </div>
-          <div class="voucher-cost">
-            <div class="voucher-pts">200</div>
-            <div class="voucher-pts-label">pts</div>
-          </div>
-          <div class="check-circle">✓</div>
-        </div>
-
-        <div class="voucher-card" id="v2" onclick="selectVoucher('v2')">
-          <div class="voucher-emoji">🌟</div>
-          <div class="voucher-info">
-            <div class="voucher-name">Free Lip Wax</div>
-            <div class="voucher-desc">Upper or lower lip</div>
-          </div>
-          <div class="voucher-cost">
-            <div class="voucher-pts">150</div>
-            <div class="voucher-pts-label">pts</div>
-          </div>
-          <div class="check-circle">✓</div>
-        </div>
-
+      <div style="margin-bottom:4px;font-size:12px;color:var(--text-light);" id="voucher-detail-sub">Select a client first</div>
+      <div id="voucher-list-dynamic" style="margin-bottom:16px;">
+        <div style="text-align:center;color:var(--text-light);font-size:13px;padding:24px 0;">Loading vouchers…</div>
       </div>
-
-      <!-- Locked (greyed out, not selectable) -->
-      <div style="margin-bottom:14px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Locked — Not Enough Points</div>
-
-      <div class="voucher-list">
-        <div class="voucher-card" style="opacity:.45;cursor:default;">
-          <div class="voucher-emoji" style="filter:grayscale(1);">✨</div>
-          <div class="voucher-info">
-            <div class="voucher-name" style="color:var(--text-mid);">10% Off Next Visit</div>
-            <div class="voucher-desc">Any treatment · needs 500 pts</div>
-          </div>
-          <div class="voucher-cost">
-            <div class="voucher-pts" style="color:var(--text-light);">500</div>
-            <div class="voucher-pts-label">pts</div>
-          </div>
-          <div style="font-size:14px;color:var(--text-light);">🔒</div>
-        </div>
-
-        <div class="voucher-card" style="opacity:.45;cursor:default;">
-          <div class="voucher-emoji" style="filter:grayscale(1);">🌸</div>
-          <div class="voucher-info">
-            <div class="voucher-name" style="color:var(--text-mid);">Free Hollywood Wax</div>
-            <div class="voucher-desc">Worth £45 · needs 1000 pts</div>
-          </div>
-          <div class="voucher-cost">
-            <div class="voucher-pts" style="color:var(--text-light);">1000</div>
-            <div class="voucher-pts-label">pts</div>
-          </div>
-          <div style="font-size:14px;color:var(--text-light);">🔒</div>
-        </div>
-      </div>
-
-      <button class="btn-redeem ready" id="redeem-btn" onclick="show('client-detail')">
-        Redeem — Free Eyebrow Tint (−200 pts) →
-      </button>
+      <button class="btn-redeem" id="redeem-btn" onclick="redeemVoucher()">Select a reward to redeem →</button>
 
     </div>
   </div>
 </div>
 
 <script>
-function show(id) {
+const SUPABASE_URL = 'https://bqoamhixwfarhchpzunc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxb2FtaGl4d2ZhcmhjaHB6dW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NDM0OTEsImV4cCI6MjA5NDAxOTQ5MX0.iEAlJMWXORtIoyi0BMsWCn-bynv28Yc4eHQ7jqHlk4s';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentStaff = null;
+let currentClientId = null;
+let allClients = [];
+let allVouchers = [];
+let selectedVoucherId = null;
+let html5QrScanner = null;
+
+function _showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const ids = ['dashboard','client-detail','scan-screen','voucher-screen'];
+  const ids = ['staff-login','dashboard','client-detail','scan-screen','voucher-screen'];
   document.querySelectorAll('.proto-nav button').forEach((b,i) => b.classList.toggle('active', ids[i]===id));
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-const voucherNames = {
-  v1: 'Free Eyebrow Tint (−200 pts)',
-  v2: 'Free Lip Wax (−150 pts)'
-};
+function show(id) {
+  _showScreen(id);
+  if (id === 'scan-screen') startScanner();
+  else stopScanner();
+  if (id === 'voucher-screen') renderVoucherScreen();
+}
 
-function selectVoucher(id) {
-  document.querySelectorAll('.voucher-card[id]').forEach(c => c.classList.remove('selected'));
-  document.getElementById(id).classList.add('selected');
+async function signOut() {
+  await supabase.auth.signOut();
+  currentStaff = null;
+  currentClientId = null;
+  allClients = [];
+  stopScanner();
+  _showScreen('staff-login');
+}
+
+async function staffLogin() {
+  const email = document.getElementById('staff-email').value.trim();
+  const password = document.getElementById('staff-password').value;
+  const errEl = document.getElementById('staff-login-error');
+  const btn = document.getElementById('staff-login-btn');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.textContent = 'Invalid email or password.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Sign In →';
+    return;
+  }
+  await loadStaffData();
+  show('dashboard');
+}
+
+async function loadStaffData() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { show('staff-login'); return; }
+  const { data } = await supabase.from('staff').select('*').eq('id', user.id).single();
+  if (!data) { show('staff-login'); return; }
+  currentStaff = data;
+  document.getElementById('staff-name-display').textContent = data.full_name;
+  document.getElementById('avatar-initial').textContent = data.full_name.charAt(0);
+  document.getElementById('staff-role-display').textContent =
+    data.role.charAt(0).toUpperCase() + data.role.slice(1) + (data.location ? ' · ' + data.location : '');
+  await Promise.all([loadClientList(), loadVoucherList(), loadTodayStats()]);
+}
+
+async function loadTodayStats() {
+  const today = new Date().toISOString().slice(0,10);
+  const { data } = await supabase.from('transactions')
+    .select('points_delta')
+    .eq('performed_by', currentStaff.id)
+    .eq('type', 'earn')
+    .gte('created_at', today + 'T00:00:00Z');
+  const pts = data ? data.reduce((s,t) => s + t.points_delta, 0) : 0;
+  const visits = data ? data.length : 0;
+  document.getElementById('stat-pts-today').textContent = '+' + pts;
+  document.getElementById('stat-visits-today').textContent = visits;
+}
+
+async function loadClientList() {
+  const { data } = await supabase.from('customers')
+    .select('id, full_name, phone, points, member_since').order('full_name');
+  if (!data) return;
+  allClients = data;
+  const total = data.length;
+  const top = data.reduce((m,c) => Math.max(m, c.points), 0);
+  document.getElementById('stat-my-clients').textContent = total;
+  document.getElementById('stat-hero-clients').textContent = total;
+  document.getElementById('stat-top-pts').textContent = top;
+  renderClientList(data);
+}
+
+function renderClientList(clients) {
+  const container = document.getElementById('client-list-container');
+  if (!clients.length) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light);">No clients found</div>';
+    return;
+  }
+  container.innerHTML = clients.map(c => `
+    <div class="client-row" onclick="openClientDetail('${c.id}')">
+      <div class="client-av">${c.full_name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div class="client-info">
+        <div class="client-name">${c.full_name}</div>
+        <div class="client-phone">${c.phone}</div>
+      </div>
+      <div class="client-pts"><div class="pts-big">${c.points}</div><div class="pts-tiny">pts</div></div>
+      <span class="chevron">›</span>
+    </div>`).join('');
+}
+
+function filterClients(query) {
+  const q = query.toLowerCase();
+  renderClientList(allClients.filter(c =>
+    c.full_name.toLowerCase().includes(q) || c.phone.includes(q)));
+}
+
+async function openClientDetail(customerId) {
+  currentClientId = customerId;
+  const client = allClients.find(c => c.id === customerId);
+  document.getElementById('detail-cust-name').textContent = client.full_name;
+  document.getElementById('detail-cust-phone').textContent = client.phone;
+  document.getElementById('detail-pts-balance').textContent = client.points;
+  document.getElementById('detail-cust-since').textContent =
+    new Date(client.member_since).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+  await loadClientTransactions(customerId);
+  show('client-detail');
+}
+
+async function loadClientTransactions(customerId) {
+  const { data } = await supabase.from('transactions')
+    .select('*, staff(full_name)').eq('customer_id', customerId)
+    .order('created_at', { ascending: false }).limit(20);
+  const list = document.getElementById('client-tx-list');
+  if (!data || !data.length) {
+    list.innerHTML = '<li style="text-align:center;color:var(--text-light);font-size:13px;padding:20px 0;list-style:none;">No transactions yet.</li>';
+    return;
+  }
+  const redeemed = data.filter(t => t.type === 'redeem').length;
+  document.getElementById('detail-redeemed-count').textContent = redeemed + (redeemed === 1 ? ' used' : ' used');
+  list.innerHTML = data.map(tx => `
+    <li class="tx-item">
+      <div class="tx-dot ${tx.points_delta > 0 ? 'plus' : 'minus'}"></div>
+      <div class="tx-info">
+        <div class="tx-name">${tx.note || (tx.type === 'redeem' ? 'Reward Redeemed' : 'Points Earned')}</div>
+        <div class="tx-meta">${new Date(tx.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · by ${tx.staff ? tx.staff.full_name : 'System'}</div>
+      </div>
+      <div class="tx-pts ${tx.points_delta > 0 ? 'plus' : 'minus'}">${tx.points_delta > 0 ? '+' : ''}${tx.points_delta}</div>
+    </li>`).join('');
+}
+
+function startScanner() {
+  document.getElementById('found-section').style.display = 'none';
+  document.getElementById('scan-status').textContent = 'Point camera at client\'s QR code';
+  if (html5QrScanner) html5QrScanner.clear().catch(() => {});
+  html5QrScanner = new Html5Qrcode('qr-reader');
+  html5QrScanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 200, height: 200 } },
+    onScanSuccess,
+    () => {}
+  ).catch(err => {
+    document.getElementById('scan-status').textContent = 'Camera access denied. Please allow camera permissions.';
+  });
+}
+
+function stopScanner() {
+  if (html5QrScanner) {
+    html5QrScanner.stop().catch(() => {});
+  }
+}
+
+async function onScanSuccess(decodedText) {
+  await html5QrScanner.stop();
+  const { data: client } = await supabase.from('customers')
+    .select('id, full_name, points, phone').eq('id', decodedText).single();
+  if (!client) {
+    document.getElementById('scan-status').textContent = 'QR code not recognised. Try again.';
+    startScanner();
+    return;
+  }
+  currentClientId = client.id;
+  document.getElementById('found-av').textContent =
+    client.full_name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('found-name').textContent = client.full_name;
+  document.getElementById('found-pts').textContent = client.points + ' pts';
+  document.getElementById('scan-status').textContent = 'Client found!';
+  document.getElementById('found-section').style.display = 'block';
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn() {
+  const pts = document.getElementById('points-input').value || 0;
+  document.getElementById('confirm-pts-btn').textContent = `Confirm +${pts} pts →`;
+}
+
+async function confirmAddPoints() {
+  if (!currentClientId) return;
+  const pts = parseInt(document.getElementById('points-input').value);
+  const note = document.getElementById('note-input').value.trim() || 'Points Added';
+  const btn = document.getElementById('confirm-pts-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  const { error } = await supabase.rpc('add_points', {
+    p_customer_id: currentClientId, p_delta: pts, p_note: note, p_type: 'earn'
+  });
+  if (error) {
+    alert('Error: ' + error.message);
+    btn.disabled = false;
+    updateConfirmBtn();
+    return;
+  }
+  const idx = allClients.findIndex(c => c.id === currentClientId);
+  if (idx >= 0) allClients[idx].points += pts;
+  await openClientDetail(currentClientId);
+}
+
+async function loadVoucherList() {
+  const { data } = await supabase.from('vouchers').select('*').eq('is_active', true).order('points_cost');
+  if (data) allVouchers = data;
+}
+
+function renderVoucherScreen() {
+  const client = allClients.find(c => c.id === currentClientId);
+  const sub = document.getElementById('voucher-detail-sub');
+  sub.textContent = client ? `${client.full_name} · ${client.points} pts available` : 'Select a client first';
+  selectedVoucherId = null;
   const btn = document.getElementById('redeem-btn');
-  btn.textContent = 'Redeem — ' + voucherNames[id] + ' →';
+  btn.textContent = 'Select a reward to redeem →';
+  btn.classList.remove('ready');
+  const unlocked = client ? allVouchers.filter(v => v.points_cost <= client.points) : [];
+  const locked   = client ? allVouchers.filter(v => v.points_cost >  client.points) : allVouchers;
+  document.getElementById('voucher-list-dynamic').innerHTML = `
+    ${unlocked.length ? `
+      <div style="margin-bottom:14px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Unlocked Rewards</div>
+      <div class="voucher-list">
+        ${unlocked.map(v => `
+          <div class="voucher-card" id="vd-${v.id}" onclick="selectVoucherDynamic('${v.id}')">
+            <div class="voucher-emoji">${v.emoji || '💅'}</div>
+            <div class="voucher-info">
+              <div class="voucher-name">${v.name}</div>
+              <div class="voucher-desc">${v.description || ''}</div>
+              <div style="font-size:11px;color:var(--gold);margin-top:4px;font-weight:500;">Value: £${v.retail_value}</div>
+            </div>
+            <div class="voucher-cost"><div class="voucher-pts" style="font-weight:600;">${v.points_cost}</div><div class="voucher-pts-label">pts</div></div>
+            <div class="check-circle">✓</div>
+          </div>`).join('')}
+      </div>` : ''}
+    ${locked.length ? `
+      <div style="margin:14px 0;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Locked — Not Enough Points</div>
+      <div class="voucher-list">
+        ${locked.map(v => `
+          <div class="voucher-card" style="opacity:.45;cursor:default;">
+            <div class="voucher-emoji" style="filter:grayscale(1)">${v.emoji || '💅'}</div>
+            <div class="voucher-info">
+              <div class="voucher-name" style="color:var(--text-mid)">${v.name}</div>
+              <div class="voucher-desc">${v.description || ''}</div>
+              <div style="font-size:11px;color:var(--text-light);margin-top:4px;">Value: £${v.retail_value} · Need ${v.points_cost - client.points} more pts</div>
+            </div>
+            <div class="voucher-cost"><div class="voucher-pts" style="color:var(--text-light)">${v.points_cost}</div><div class="voucher-pts-label">pts</div></div>
+            <div style="font-size:14px;color:var(--text-light)">🔒</div>
+          </div>`).join('')}
+      </div>` : ''}`;
+}
+
+function selectVoucherDynamic(voucherId) {
+  document.querySelectorAll('[id^="vd-"]').forEach(c => c.classList.remove('selected'));
+  document.getElementById('vd-' + voucherId).classList.add('selected');
+  selectedVoucherId = voucherId;
+  const v = allVouchers.find(v => v.id === voucherId);
+  const btn = document.getElementById('redeem-btn');
+  btn.textContent = `Redeem — ${v.name} (−${v.points_cost} pts) →`;
   btn.classList.add('ready');
 }
+
+async function redeemVoucher() {
+  if (!selectedVoucherId || !currentClientId) return;
+  const v = allVouchers.find(v => v.id === selectedVoucherId);
+  const btn = document.getElementById('redeem-btn');
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+  const { error } = await supabase.rpc('add_points', {
+    p_customer_id: currentClientId, p_delta: -v.points_cost,
+    p_note: v.name + ' — Redeemed', p_type: 'redeem', p_voucher_id: v.id
+  });
+  if (error) {
+    alert('Redemption failed: ' + error.message);
+    btn.disabled = false;
+    btn.classList.add('ready');
+    return;
+  }
+  const idx = allClients.findIndex(c => c.id === currentClientId);
+  if (idx >= 0) allClients[idx].points -= v.points_cost;
+  await openClientDetail(currentClientId);
+}
+
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) { await loadStaffData(); _showScreen('dashboard'); }
+  else _showScreen('staff-login');
+})();
 </script>
 </body>
 </html>
