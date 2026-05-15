@@ -73,6 +73,18 @@ test("Supabase client supports the v2 CDN global", () => {
   assert.match(source, /createClient/);
 });
 
+test("email sign-in redirects to the configured production site instead of localhost", () => {
+  const source = read("js/auth-router.js");
+  const buildConfig = read("scripts/build-config.js");
+
+  assert.match(source, /function signInRedirectTo/);
+  assert.match(source, /PEACHES_CONFIG\?\.SITE_URL/);
+  assert.match(source, /peaches-puce\.vercel\.app/);
+  assert.match(source, /emailRedirectTo: signInRedirectTo\(\)/);
+  assert.match(buildConfig, /SITE_URL/);
+  assert.match(buildConfig, /VERCEL_PROJECT_PRODUCTION_URL/);
+});
+
 test("customer app renders QR per customer and keeps history back arrow-only", () => {
   const source = read("js/customer-app.js");
 

@@ -12,6 +12,19 @@
     el.dataset.tone = tone || "";
   }
 
+  function cleanOrigin(url) {
+    return String(url || "").replace(/\/+$/, "");
+  }
+
+  function signInRedirectTo() {
+    const configuredSiteUrl = cleanOrigin(window.PEACHES_CONFIG?.SITE_URL);
+    const currentOrigin = cleanOrigin(window.location.origin);
+    const localOrigin = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(currentOrigin);
+    const productionSiteUrl = "https://peaches-puce.vercel.app";
+    const origin = configuredSiteUrl || (localOrigin ? productionSiteUrl : currentOrigin);
+    return `${origin}/`;
+  }
+
   function initLoginIntent() {
     const buttons = Array.from(document.querySelectorAll("[data-login-intent]"));
     const copy = document.getElementById("login-copy");
@@ -143,7 +156,7 @@
       const { error } = await window.supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: window.location.origin + "/index.html",
+          emailRedirectTo: signInRedirectTo(),
         },
       });
 

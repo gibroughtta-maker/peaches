@@ -19,6 +19,7 @@ test("build-config writes Supabase runtime config from environment", () => {
       ...process.env,
       SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_ANON_KEY: "test_anon_key",
+      SITE_URL: "https://peaches-puce.vercel.app/",
     },
     encoding: "utf8",
   });
@@ -26,7 +27,7 @@ test("build-config writes Supabase runtime config from environment", () => {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
     fs.readFileSync(configPath, "utf8"),
-    'window.PEACHES_CONFIG = {\n  SUPABASE_URL: "https://example.supabase.co",\n  SUPABASE_ANON_KEY: "test_anon_key"\n};\n',
+    'window.PEACHES_CONFIG = {\n  SUPABASE_URL: "https://example.supabase.co",\n  SUPABASE_ANON_KEY: "test_anon_key",\n  SITE_URL: "https://peaches-puce.vercel.app"\n};\n',
   );
 
   if (previousConfig === null) {
