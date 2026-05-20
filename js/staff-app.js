@@ -8,6 +8,7 @@
   let selectedCustomer = null;
   let selectedVoucher = null;
   let selectedVerifiedByScan = false;
+  let selectedScanToken = null;
   let qrScanner = null;
   let scanning = false;
 
@@ -53,16 +54,29 @@
     return parts.join(" · ") || escapeHtml(voucher.description || "Peaches reward");
   }
 
-  function extractCustomerId(decoded) {
+  function extractCustomerScan(decoded) {
     if (!decoded) return null;
     const text = String(decoded).trim();
-    if (UUID_REGEX.test(text)) return text.toLowerCase();
+    if (UUID_REGEX.test(text)) return { customerId: text.toLowerCase(), qrToken: null };
+    try {
+      const payload = JSON.parse(text);
+      const customerId = payload.customer_id || payload.customerId;
+      const qrToken = payload.qr_token || payload.qrToken;
+      if (customerId && qrToken && UUID_REGEX.test(customerId)) {
+        return { customerId: customerId.toLowerCase(), qrToken: String(qrToken) };
+      }
+    } catch (error) {
+      // QR codes may be URLs or plain UUIDs from older builds.
+    }
     try {
       const url = new URL(text);
       const customerId = url.searchParams.get("customer") || url.searchParams.get("customer_id");
-      if (customerId && UUID_REGEX.test(customerId)) return customerId.toLowerCase();
+      const qrToken = url.searchParams.get("qr_token") || url.searchParams.get("token");
+      if (customerId && qrToken && UUID_REGEX.test(customerId)) {
+        return { customerId: customerId.toLowerCase(), qrToken };
+      }
     } catch (error) {
-      // Plain UUID QR codes are expected, so non-URL text is fine.
+      // Non-URL text is fine.
     }
     return null;
   }
@@ -110,17 +124,17 @@
       scanning = true;
       setStatus("#scan-status", "Point camera at the customer's QR code.");
     } catch (error) {
-      setStatus("#scan-status", "Camera blocked. Allow camera access, or use the manual fallback for testing.", "error");
+      setStatus("#scan-status", "Camera blocked. Allow camera access. Manual lookup can view a customer, but cannot add points.", "error");
     }
   }
 
   async function onScanSuccess(decodedText) {
-    const customerId = extractCustomerId(decodedText);
-    if (!customerId) {
+    const scan = extractCustomerScan(decodedText);
+    if (!scan?.customerId || !scan.qrToken) {
       setStatus("#scan-status", "QR code not recognised. Try the customer's Peaches QR.", "error");
       return;
     }
-    await openCustomer(customerId, { verifiedByScan: true, navigateTo: "client-detail" });
+    await openCustomer(scan.customerId, { verifiedByScan: true, qrToken: scan.qrToken, navigateTo: "client-detail" });
   }
 
   function renderStaff() {
@@ -289,6 +303,9 @@
     if (!customerId || !UUID_REGEX.test(customerId)) {
       throw new Error("Enter a valid customer UUID.");
     }
+    if (verifiedByScan && !options.qrToken) {
+      throw new Error("Scan the customer's current QR code first.");
+    }
 
     await stopScanner();
     const customer = customers.find((item) => item.id === customerId)
@@ -297,6 +314,7 @@
 
     selectedCustomer = customer;
     selectedVerifiedByScan = verifiedByScan;
+    selectedScanToken = verifiedByScan ? options.qrToken || null : null;
     selectedVoucher = null;
     setStatus("#scan-status", verifiedByScan ? "Customer verified." : "");
 
@@ -355,7 +373,8 @@
 
     const scannedCustomerId = new URLSearchParams(window.location.search).get("customer");
     if (scannedCustomerId) {
-      await openCustomer(scannedCustomerId, { verifiedByScan: true, navigateTo: "client-detail" });
+      const token = new URLSearchParams(window.location.search).get("qr_token");
+      await openCustomer(scannedCustomerId, { verifiedByScan: Boolean(token), qrToken: token, navigateTo: "client-detail" });
     }
   }
 
@@ -375,9 +394,10 @@
     button.disabled = true;
     setStatus("#add-points-status", "Saving points...");
     try {
-      await window.peachesData.addPoints({ customerId: selectedCustomer?.id, delta, note });
+      await window.peachesData.addPoints({ customerId: selectedCustomer?.id, delta, note, qrToken: selectedScanToken });
       setStatus("#add-points-status", "Points added.", "success");
       selectedVerifiedByScan = false;
+      selectedScanToken = null;
       await refreshSelectedCustomer();
       await show("client-detail");
     } catch (error) {
@@ -404,9 +424,11 @@
       await window.peachesData.redeemVoucher({
         customerId: selectedCustomer?.id,
         voucher: selectedVoucher,
+        qrToken: selectedScanToken,
       });
       setStatus("#redeem-status", "Voucher redeemed.", "success");
       selectedVerifiedByScan = false;
+      selectedScanToken = null;
       selectedVoucher = null;
       await refreshSelectedCustomer();
       await show("client-detail");
@@ -429,7 +451,7 @@
     document.getElementById("customer-search")?.addEventListener("input", applyCustomerSearch);
     document.getElementById("manual-open-customer")?.addEventListener("click", () => {
       const value = document.getElementById("manual-customer-id")?.value.trim();
-      openCustomer(value, { verifiedByScan: true, navigateTo: "client-detail" })
+      openCustomer(value, { verifiedByScan: false, navigateTo: "client-detail" })
         .catch((error) => setStatus("#scan-status", error.message, "error"));
     });
     document.getElementById("sign-out-button")?.addEventListener("click", () => {

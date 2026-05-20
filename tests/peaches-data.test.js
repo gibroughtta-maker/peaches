@@ -168,6 +168,7 @@ test("staff point changes are written through the add_points RPC", async () => {
     customerId: "customer-1",
     delta: 50,
     note: "Hollywood Wax",
+    qrToken: "qr-token-1",
   });
 
   assert.deepEqual(plain(supabase.rpcCalls), [
@@ -179,6 +180,7 @@ test("staff point changes are written through the add_points RPC", async () => {
         p_note: "Hollywood Wax",
         p_type: "earn",
         p_voucher_id: null,
+        p_qr_token: "qr-token-1",
       },
     },
   ]);

@@ -117,12 +117,26 @@ test("password auth redirects use the configured production site instead of loca
   assert.match(buildConfig, /VERCEL_PROJECT_PRODUCTION_URL/);
 });
 
+test("Vercel sends baseline browser security headers", () => {
+  const config = read("vercel.json");
+
+  assert.match(config, /Content-Security-Policy/);
+  assert.match(config, /frame-ancestors 'none'/);
+  assert.match(config, /X-Content-Type-Options/);
+  assert.match(config, /Referrer-Policy/);
+  assert.match(config, /Permissions-Policy/);
+});
+
 test("customer app renders QR per customer and keeps history back arrow-only", () => {
   const source = read("js/customer-app.js");
   const html = read("customer.html");
 
   assert.match(source, /function renderCustomerQr/);
-  assert.match(source, /const payload = customer\.id/);
+  assert.match(source, /customer_id: customer\.id/);
+  assert.match(source, /qr_token: customer\.qr_token/);
+  assert.match(source, /function escapeHtml/);
+  assert.match(source, /escapeHtml\(displayName\)/);
+  assert.match(source, /escapeHtml\(txLabel\(tx\)\)/);
   assert.doesNotMatch(html, /class="qr-name"/);
   assert.doesNotMatch(html, /class="qr-id"/);
   assert.doesNotMatch(html, /class="qr-pts-pill"/);
@@ -136,8 +150,13 @@ test("staff QR scan verifies a customer before point and voucher actions", () =>
   const source = read("js/staff-app.js");
   const html = read("staff.html");
 
-  assert.match(source, /openCustomer\(customerId,\s*\{\s*verifiedByScan:\s*true,\s*navigateTo:\s*"client-detail"\s*\}\)/);
+  assert.match(source, /function extractCustomerScan/);
+  assert.match(source, /qr_token/);
+  assert.match(source, /openCustomer\(scan\.customerId,\s*\{\s*verifiedByScan:\s*true,\s*qrToken:\s*scan\.qrToken,\s*navigateTo:\s*"client-detail"\s*\}\)/);
   assert.match(source, /selectedVerifiedByScan = verifiedByScan/);
+  assert.match(source, /selectedScanToken = verifiedByScan \? options\.qrToken \|\| null : null/);
+  assert.match(source, /qrToken: selectedScanToken/);
+  assert.doesNotMatch(source, /manual-customer-id"\)\?\.value\.trim\(\);\s*openCustomer\(value,\s*\{\s*verifiedByScan:\s*true/);
   assert.match(html, /Scan the customer's QR code before adding points/);
   assert.match(source, /getElementById\("go-add-points"\)/);
   assert.match(source, /getElementById\("go-redeem"\)/);
@@ -150,9 +169,14 @@ test("staff QR scan verifies a customer before point and voucher actions", () =>
 
 test("signup phone is persisted through Supabase customer trigger", () => {
   const migration = read("supabase/migrations/20260520000002_require_signup_phone.sql");
+  const secureQrMigration = read("supabase/migrations/20260520000003_secure_qr_tokens_and_add_points.sql");
 
   assert.match(migration, /alter table public\.customers[\s\S]*add column if not exists phone text/);
   assert.match(migration, /alter table public\.staff[\s\S]*add column if not exists phone text/);
   assert.match(migration, /raw_user_meta_data ->> 'phone'/);
   assert.match(migration, /phone = coalesce\(nullif\(excluded\.phone, ''\), public\.customers\.phone\)/);
+  assert.match(secureQrMigration, /create table if not exists public\.customer_qr_tokens/);
+  assert.match(secureQrMigration, /customer_select_own_qr_token/);
+  assert.match(secureQrMigration, /p_qr_token text default null/);
+  assert.match(secureQrMigration, /Invalid or expired customer QR code/);
 });

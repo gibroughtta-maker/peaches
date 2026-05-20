@@ -140,18 +140,32 @@
       return data || [];
     }
 
+    async function getCustomerQrToken(customerId) {
+      const { data, error } = await supabase
+        .from("customer_qr_tokens")
+        .select("token")
+        .eq("customer_id", customerId)
+        .maybeSingle();
+      throwIfError(error);
+      if (!data?.token) throw new Error("Customer QR token is not ready.");
+      return data.token;
+    }
+
     async function getCustomerHome(customerId) {
-      const [customer, vouchers, transactions] = await Promise.all([
+      const [customer, vouchers, transactions, qrToken] = await Promise.all([
         getCustomer(customerId),
         listActiveVouchers(),
         listTransactions(customerId, 20),
+        getCustomerQrToken(customerId),
       ]);
+      if (customer) customer.qr_token = qrToken;
       return { customer, vouchers, transactions };
     }
 
-    async function addPoints({ customerId, delta, note, voucherId }) {
+    async function addPoints({ customerId, delta, note, voucherId, qrToken }) {
       const numericDelta = Number(delta);
       if (!customerId) throw new Error("Choose a customer first.");
+      if (!qrToken) throw new Error("Scan the customer's QR code first.");
       if (!Number.isInteger(numericDelta) || numericDelta === 0) {
         throw new Error("Enter a non-zero whole number of points.");
       }
@@ -162,18 +176,20 @@
         p_note: note || (numericDelta > 0 ? "Points added" : "Reward redeemed"),
         p_type: numericDelta > 0 ? "earn" : "redeem",
         p_voucher_id: voucherId || null,
+        p_qr_token: qrToken,
       });
       throwIfError(error);
       return data;
     }
 
-    async function redeemVoucher({ customerId, voucher }) {
+    async function redeemVoucher({ customerId, voucher, qrToken }) {
       if (!voucher) throw new Error("Choose a voucher first.");
       return addPoints({
         customerId,
         delta: -Math.abs(Number(voucher.points_cost)),
         note: voucher.name,
         voucherId: voucher.id,
+        qrToken,
       });
     }
 
@@ -183,6 +199,7 @@
       getCurrentProfile,
       getCustomer,
       getCustomerHome,
+      getCustomerQrToken,
       initials,
       listActiveVouchers,
       listCustomers,
