@@ -117,6 +117,49 @@ test("current profile resolves customers without requiring a profiles table", as
   assert.equal(profile.display_name, "Emma Clarke");
 });
 
+test("profile names fall back to auth metadata before email", async () => {
+  const PeachesData = loadDataLayer();
+  const staffSupabase = fakeSupabase(
+    {
+      staff: [{ id: "staff-1", full_name: "", role: "therapist" }],
+      customers: [],
+    },
+    {
+      id: "staff-1",
+      email: "staff@example.com",
+      user_metadata: { full_name: "Sheldon Staff" },
+    },
+  );
+  const customerSupabase = fakeSupabase(
+    {
+      staff: [],
+      customers: [{ id: "user-3", full_name: "", points: 0 }],
+    },
+    {
+      id: "user-3",
+      email: "customer@example.com",
+      user_metadata: { full_name: "Wendy Customer" },
+    },
+  );
+
+  assert.equal((await PeachesData.create(staffSupabase).getCurrentProfile()).display_name, "Sheldon Staff");
+  assert.equal((await PeachesData.create(customerSupabase).getCurrentProfile()).display_name, "Wendy Customer");
+});
+
+test("customer home records always expose a displayable customer name", async () => {
+  const PeachesData = loadDataLayer();
+  const supabase = fakeSupabase(
+    {
+      customers: [{ id: "user-4", full_name: "", phone: "fallback@example.com", points: 0 }],
+    },
+    { id: "staff-1", email: "staff@example.com" },
+  );
+
+  const customer = await PeachesData.create(supabase).getCustomer("user-4");
+
+  assert.equal(customer.full_name, "fallback");
+});
+
 test("staff point changes are written through the add_points RPC", async () => {
   const PeachesData = loadDataLayer();
   const supabase = fakeSupabase({}, { id: "staff-1", email: "sophie@example.com" });

@@ -89,7 +89,7 @@
     const { customer, vouchers, transactions } = await window.peachesData.getCustomerHome(user.id);
     if (!customer) return;
 
-    const firstName = customer.full_name.split(/\s+/)[0] || customer.full_name;
+    const displayName = customer.full_name || "Customer";
     const balance = customer.points || 0;
     const nextReward = vouchers.find((voucher) => voucher.points_cost > balance);
 
@@ -98,7 +98,7 @@
       body.innerHTML = `
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
           <div>
-            <div class="greeting" style="font-size:20px;">Hello, ${firstName}</div>
+            <div class="greeting" style="font-size:20px;">Hello, ${displayName}</div>
             <div class="greeting-sub" style="margin-bottom:0;">Member since ${moneyDate(customer.member_since)}</div>
           </div>
           <div style="text-align:right;">

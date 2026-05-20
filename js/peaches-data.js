@@ -19,6 +19,29 @@
       .toUpperCase() || "??";
   }
 
+  function emailName(email) {
+    return String(email || "")
+      .split("@")[0]
+      .replace(/[._-]+/g, " ")
+      .trim();
+  }
+
+  function displayName({ fullName, metadataName, email, fallback = "Peaches Member" }) {
+    return String(fullName || metadataName || emailName(email) || fallback).trim();
+  }
+
+  function withCustomerDisplayName(customer) {
+    if (!customer) return customer;
+    return {
+      ...customer,
+      full_name: displayName({
+        fullName: customer.full_name,
+        email: customer.phone,
+        fallback: "Customer",
+      }),
+    };
+  }
+
   function create(supabase) {
     assertSupabase(supabase);
 
@@ -40,10 +63,16 @@
       throwIfError(staffError);
 
       if (staff) {
+        const staffName = displayName({
+          fullName: staff.full_name,
+          metadataName: user.user_metadata?.full_name,
+          email: staff.email || user.email,
+          fallback: "Staff",
+        });
         return {
           id: staff.id,
           role: staff.role || "therapist",
-          display_name: staff.full_name,
+          display_name: staffName,
           email: staff.email || user.email || "",
         };
       }
@@ -60,7 +89,12 @@
       return {
         id: customer.id,
         role: "customer",
-        display_name: customer.full_name,
+        display_name: displayName({
+          fullName: customer.full_name,
+          metadataName: user.user_metadata?.full_name,
+          email: user.email,
+          fallback: "Customer",
+        }),
         email: user.email || "",
       };
     }
@@ -72,7 +106,7 @@
         .eq("id", customerId)
         .maybeSingle();
       throwIfError(error);
-      return data;
+      return withCustomerDisplayName(data);
     }
 
     async function listCustomers() {
@@ -82,7 +116,7 @@
         .order("full_name", { ascending: true })
         .limit(50);
       throwIfError(error);
-      return data || [];
+      return (data || []).map(withCustomerDisplayName);
     }
 
     async function listTransactions(customerId, limit) {
