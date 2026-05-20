@@ -60,11 +60,21 @@
     });
   }
 
+  function selectedLoginIntent() {
+    return document.querySelector?.("[data-login-intent].active")?.dataset.loginIntent === "staff"
+      ? "staff"
+      : "customer";
+  }
+
   function setAuthMode(mode) {
     const nextMode = mode === "register" || mode === "reset" ? mode : "login";
     const buttons = Array.from(document.querySelectorAll("[data-auth-mode]"));
     const confirmGroup = document.getElementById("confirm-password-group");
     const confirmInput = document.getElementById("confirm-password");
+    const fullNameGroup = document.getElementById("full-name-group");
+    const fullNameInput = document.getElementById("full-name");
+    const birthDateGroup = document.getElementById("birth-date-group");
+    const birthDateInput = document.getElementById("birth-date");
     const passwordGroup = document.getElementById("password-group");
     const passwordInput = document.getElementById("password");
     const submitButton = document.getElementById("auth-submit");
@@ -84,6 +94,10 @@
     });
 
     if (passwordGroup) passwordGroup.hidden = isReset;
+    if (fullNameGroup) fullNameGroup.hidden = !isRegister;
+    if (birthDateGroup) birthDateGroup.hidden = !isRegister;
+    if (fullNameInput) fullNameInput.required = isRegister;
+    if (birthDateInput) birthDateInput.required = isRegister;
     if (confirmGroup) confirmGroup.hidden = !isRegister;
     if (confirmInput) confirmInput.required = isRegister;
     if (passwordInput) {
@@ -197,9 +211,13 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const input = document.getElementById("email");
+      const fullNameInput = document.getElementById("full-name");
+      const birthDateInput = document.getElementById("birth-date");
       const passwordInput = document.getElementById("password");
       const confirmInput = document.getElementById("confirm-password");
       const email = input?.value.trim();
+      const fullName = fullNameInput?.value.trim() || "";
+      const birthDate = birthDateInput?.value || "";
       const password = passwordInput?.value || "";
       if (!email) {
         setStatus(form.dataset.authMode === "reset" ? "Enter your email address to reset your password." : "Enter your email address.", "error");
@@ -226,6 +244,14 @@
         setStatus("Enter your password.", "error");
         return;
       }
+      if (form.dataset.authMode === "register" && !fullName) {
+        setStatus("Enter your full name.", "error");
+        return;
+      }
+      if (form.dataset.authMode === "register" && !birthDate) {
+        setStatus("Enter your birthday.", "error");
+        return;
+      }
       if (form.dataset.authMode === "register" && password !== (confirmInput?.value || "")) {
         setStatus("Passwords do not match.", "error");
         return;
@@ -241,6 +267,11 @@
             email,
             password,
             options: {
+              data: {
+                birth_date: birthDate,
+                full_name: fullName,
+                login_intent: selectedLoginIntent(),
+              },
               emailRedirectTo: signInRedirectTo(),
             },
           });
@@ -349,6 +380,7 @@
     hydrateSessionFromUrl,
     initAuthMode,
     initLoginIntent,
+    selectedLoginIntent,
     initEmailLogin,
     initPasswordReset,
     pageForRole,

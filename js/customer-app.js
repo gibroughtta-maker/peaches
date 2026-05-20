@@ -122,8 +122,6 @@
       `;
     }
 
-    setText(".qr-name", customer.full_name);
-    setText(".qr-id", `Member ID - ${customer.id.slice(0, 8).toUpperCase()}`);
     renderCustomerQr(customer);
 
     const historyBody = document.querySelector("#history .phone-body");

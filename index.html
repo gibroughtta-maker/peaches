@@ -123,6 +123,14 @@
           <label for="email">Email address</label>
           <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
         </div>
+        <div id="full-name-group" class="input-group" hidden>
+          <label for="full-name">Full name</label>
+          <input id="full-name" name="full-name" type="text" autocomplete="name" placeholder="Your name">
+        </div>
+        <div id="birth-date-group" class="input-group" hidden>
+          <label for="birth-date">Birthday</label>
+          <input id="birth-date" name="birth-date" type="date" autocomplete="bday">
+        </div>
         <div id="password-group" class="input-group">
           <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" required minlength="6" placeholder="Your password">
@@ -144,7 +152,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="/js/peaches-data.js"></script>
   <script src="/js/supabase-client.js"></script>
-  <script src="/js/auth-router.js?v=20260520-reset-mode"></script>
+  <script src="/js/auth-router.js?v=20260520-signup-details"></script>
 </body>
 </html>
 

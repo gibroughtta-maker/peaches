@@ -53,6 +53,10 @@ function loadRouter({
   authModeButtons[0].dataset.authMode = "login";
   authModeButtons[1].dataset.authMode = "register";
   const email = makeElement("user@example.com");
+  const fullName = makeElement("Test User");
+  const fullNameGroup = makeElement();
+  const birthDate = makeElement("1990-05-01");
+  const birthDateGroup = makeElement();
   const password = makeElement("secret123");
   const passwordGroup = makeElement();
   const confirmPassword = makeElement("secret123");
@@ -72,6 +76,10 @@ function loadRouter({
         if (id === "email-login-form" && hasEmailForm) return form;
         if (id === "password-reset-form" && hasResetForm) return resetForm;
         if (id === "email") return email;
+        if (id === "full-name") return fullName;
+        if (id === "full-name-group") return fullNameGroup;
+        if (id === "birth-date") return birthDate;
+        if (id === "birth-date-group") return birthDateGroup;
         if (id === "password") return password;
         if (id === "password-group") return passwordGroup;
         if (id === "confirm-password") return confirmPassword;
@@ -86,6 +94,10 @@ function loadRouter({
       querySelectorAll(selector) {
         if (selector === "[data-auth-mode]") return authModeButtons;
         return selector === "[data-login-intent]" ? elements : [];
+      },
+      querySelector(selector) {
+        if (selector === "[data-login-intent].active") return null;
+        return null;
       },
       addEventListener(type, handler) {
         listeners[type] = handler;
@@ -285,6 +297,11 @@ test("initEmailLogin registers with email and password and waits for confirmatio
   assert.equal(calls[0].email, "user@example.com");
   assert.equal(calls[0].password, "secret123");
   assert.equal(calls[0].options.emailRedirectTo, "https://peaches-puce.vercel.app/");
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0].options.data)), {
+    birth_date: "1990-05-01",
+    full_name: "Test User",
+    login_intent: "customer",
+  });
   assert.deepEqual(assigned, []);
   assert.match(status.textContent, /confirm your account/i);
   assert.equal(status.dataset.tone, "success");

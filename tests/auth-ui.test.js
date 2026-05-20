@@ -22,6 +22,10 @@ test("index renders password login, registration, and reset entry points", () =>
   assert.match(html, /type="email"/);
   assert.match(html, /type="password"/);
   assert.match(html, /id="confirm-password"/);
+  assert.match(html, /id="full-name"/);
+  assert.match(html, /id="birth-date"/);
+  assert.match(html, /autocomplete="name"/);
+  assert.match(html, /autocomplete="bday"/);
   assert.match(html, /id="forgot-password"/);
   assert.match(html, /Log in/);
   assert.match(html, /Register/);
@@ -106,9 +110,15 @@ test("password auth redirects use the configured production site instead of loca
 
 test("customer app renders QR per customer and keeps history back arrow-only", () => {
   const source = read("js/customer-app.js");
+  const html = read("customer.html");
 
   assert.match(source, /function renderCustomerQr/);
   assert.match(source, /const payload = customer\.id/);
+  assert.doesNotMatch(html, /class="qr-name"/);
+  assert.doesNotMatch(html, /class="qr-id"/);
+  assert.doesNotMatch(html, /class="qr-pts-pill"/);
+  assert.doesNotMatch(html, /Show this code to your therapist/);
+  assert.doesNotMatch(html, /reward ready to redeem/);
   assert.doesNotMatch(source, /function customerStaffUrl/);
   assert.doesNotMatch(source, />Back<\/button>/);
 });
