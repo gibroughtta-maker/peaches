@@ -123,7 +123,7 @@
           <label for="email">Email address</label>
           <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
         </div>
-        <div class="input-group">
+        <div id="password-group" class="input-group">
           <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" required minlength="6" placeholder="Your password">
         </div>
@@ -133,6 +133,7 @@
         </div>
         <button id="auth-submit" class="login-btn" type="submit">Log in</button>
         <button id="forgot-password" class="form-link" type="button">Forgot password?</button>
+        <button id="back-to-login" class="form-link" type="button" hidden>Back to log in</button>
       </form>
 
       <div id="auth-status" class="auth-status" aria-live="polite"></div>
@@ -143,7 +144,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="/js/peaches-data.js"></script>
   <script src="/js/supabase-client.js"></script>
-  <script src="/js/auth-router.js?v=20260520-password-auth"></script>
+  <script src="/js/auth-router.js?v=20260520-reset-mode"></script>
 </body>
 </html>
 

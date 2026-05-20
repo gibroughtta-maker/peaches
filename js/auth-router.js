@@ -61,13 +61,20 @@
   }
 
   function setAuthMode(mode) {
-    const nextMode = mode === "register" ? "register" : "login";
+    const nextMode = mode === "register" || mode === "reset" ? mode : "login";
     const buttons = Array.from(document.querySelectorAll("[data-auth-mode]"));
     const confirmGroup = document.getElementById("confirm-password-group");
     const confirmInput = document.getElementById("confirm-password");
+    const passwordGroup = document.getElementById("password-group");
     const passwordInput = document.getElementById("password");
     const submitButton = document.getElementById("auth-submit");
+    const forgotPasswordButton = document.getElementById("forgot-password");
+    const backToLoginButton = document.getElementById("back-to-login");
+    const copy = document.getElementById("login-copy");
+    const note = document.getElementById("role-note");
     const form = document.getElementById("email-login-form");
+    const isRegister = nextMode === "register";
+    const isReset = nextMode === "reset";
 
     if (form) form.dataset.authMode = nextMode;
     buttons.forEach((button) => {
@@ -76,12 +83,22 @@
       button.setAttribute("aria-pressed", String(active));
     });
 
-    if (confirmGroup) confirmGroup.hidden = nextMode !== "register";
-    if (confirmInput) confirmInput.required = nextMode === "register";
+    if (passwordGroup) passwordGroup.hidden = isReset;
+    if (confirmGroup) confirmGroup.hidden = !isRegister;
+    if (confirmInput) confirmInput.required = isRegister;
     if (passwordInput) {
-      passwordInput.setAttribute("autocomplete", nextMode === "register" ? "new-password" : "current-password");
+      passwordInput.required = !isReset;
+      passwordInput.setAttribute("autocomplete", isRegister ? "new-password" : "current-password");
     }
-    if (submitButton) submitButton.textContent = nextMode === "register" ? "Register" : "Log in";
+    if (submitButton) {
+      submitButton.textContent = isReset ? "Send reset link" : isRegister ? "Register" : "Log in";
+    }
+    if (forgotPasswordButton) forgotPasswordButton.hidden = isReset;
+    if (backToLoginButton) backToLoginButton.hidden = !isReset;
+    if (copy && isReset) copy.textContent = "Enter your email and we will send a password reset link";
+    if (copy && !isReset) copy.textContent = "Log in or register with your email and password";
+    if (note && isReset) note.textContent = "Use the link in your email to open the password reset page and choose a new password.";
+    if (note && !isReset) note.textContent = "New to Peaches? Register with your email and we will create your customer account automatically. Staff access is approved by Peaches in Supabase.";
   }
 
   function initAuthMode() {
@@ -185,7 +202,24 @@
       const email = input?.value.trim();
       const password = passwordInput?.value || "";
       if (!email) {
-        setStatus("Enter your email address.", "error");
+        setStatus(form.dataset.authMode === "reset" ? "Enter your email address to reset your password." : "Enter your email address.", "error");
+        return;
+      }
+      if (form.dataset.authMode === "reset") {
+        const button = form.querySelector("button[type='submit']");
+        button.disabled = true;
+        setStatus("Sending password reset email...", "");
+        try {
+          const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: passwordResetRedirectTo(),
+          });
+          if (error) throw error;
+          setStatus("Password reset email sent. Open it to set a new password.", "success");
+        } catch (error) {
+          setStatus(error.message, "error");
+        } finally {
+          button.disabled = false;
+        }
         return;
       }
       if (!password) {
@@ -230,26 +264,16 @@
     });
 
     const forgotPasswordButton = document.getElementById("forgot-password");
-    forgotPasswordButton?.addEventListener("click", async (event) => {
+    forgotPasswordButton?.addEventListener("click", (event) => {
       event.preventDefault();
-      const email = document.getElementById("email")?.value.trim();
-      if (!email) {
-        setStatus("Enter your email address to reset your password.", "error");
-        return;
-      }
-      forgotPasswordButton.disabled = true;
-      setStatus("Sending password reset email...", "");
-      try {
-        const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: passwordResetRedirectTo(),
-        });
-        if (error) throw error;
-        setStatus("Password reset email sent. Open it to set a new password.", "success");
-      } catch (error) {
-        setStatus(error.message, "error");
-      } finally {
-        forgotPasswordButton.disabled = false;
-      }
+      setAuthMode("reset");
+      setStatus("Enter your email address and we will send a password reset link.", "");
+    });
+
+    document.getElementById("back-to-login")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      setAuthMode("login");
+      setStatus("", "");
     });
   }
 

@@ -54,9 +54,11 @@ function loadRouter({
   authModeButtons[1].dataset.authMode = "register";
   const email = makeElement("user@example.com");
   const password = makeElement("secret123");
+  const passwordGroup = makeElement();
   const confirmPassword = makeElement("secret123");
   const confirmPasswordGroup = makeElement();
   const forgotPassword = makeElement();
+  const backToLogin = makeElement();
   const resetPassword = makeElement("new-secret123");
   const resetPasswordConfirm = makeElement("new-secret123");
   const status = { textContent: "", dataset: {} };
@@ -71,9 +73,11 @@ function loadRouter({
         if (id === "password-reset-form" && hasResetForm) return resetForm;
         if (id === "email") return email;
         if (id === "password") return password;
+        if (id === "password-group") return passwordGroup;
         if (id === "confirm-password") return confirmPassword;
         if (id === "confirm-password-group") return confirmPasswordGroup;
         if (id === "forgot-password") return forgotPassword;
+        if (id === "back-to-login") return backToLogin;
         if (id === "reset-password") return resetPassword;
         if (id === "reset-password-confirm") return resetPasswordConfirm;
         if (id === "auth-submit") return submitButton;
@@ -117,6 +121,7 @@ function loadRouter({
   return {
     assigned,
     authModeButtons,
+    backToLogin,
     elements,
     forgotPassword,
     form,
@@ -287,7 +292,7 @@ test("initEmailLogin registers with email and password and waits for confirmatio
 
 test("forgot password sends a reset email to the reset password page", async () => {
   const calls = [];
-  const { forgotPassword, status, window } = loadRouter({
+  const { forgotPassword, form, status, window } = loadRouter({
     hasEmailForm: true,
     profile: null,
     supabase: {
@@ -305,11 +310,48 @@ test("forgot password sends a reset email to the reset password page", async () 
 
   await window.PeachesAuth.initEmailLogin();
   await forgotPassword.handler({ preventDefault() {} });
+  await form.handler({ preventDefault() {} });
 
   assert.equal(calls[0][0], "user@example.com");
   assert.equal(calls[0][1].redirectTo, "https://peaches-puce.vercel.app/reset-password.html");
   assert.match(status.textContent, /password reset/i);
   assert.equal(status.dataset.tone, "success");
+});
+
+test("forgot password opens a reset-link mode before sending email", async () => {
+  const calls = [];
+  const { backToLogin, forgotPassword, form, status, submitButton, window } = loadRouter({
+    hasEmailForm: true,
+    profile: null,
+    supabase: {
+      auth: {
+        getUser: async () => ({ data: { user: null } }),
+        getSession: async () => ({ data: { session: null } }),
+        onAuthStateChange() {},
+        resetPasswordForEmail: async (...args) => {
+          calls.push(args);
+          return { data: {}, error: null };
+        },
+      },
+    },
+  });
+
+  window.PeachesAuth.initAuthMode();
+  await window.PeachesAuth.initEmailLogin();
+  await forgotPassword.handler({ preventDefault() {} });
+
+  assert.equal(calls.length, 0);
+  assert.equal(form.dataset.authMode, "reset");
+  assert.equal(submitButton.textContent, "Send reset link");
+  assert.equal(forgotPassword.hidden, true);
+  assert.equal(backToLogin.hidden, false);
+  assert.match(status.textContent, /enter your email/i);
+
+  await form.handler({ preventDefault() {} });
+
+  assert.equal(calls[0][0], "user@example.com");
+  assert.equal(calls[0][1].redirectTo, "https://peaches-puce.vercel.app/reset-password.html");
+  assert.match(status.textContent, /password reset/i);
 });
 
 test("reset password page updates the current user's password", async () => {
