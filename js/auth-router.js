@@ -25,6 +25,10 @@
     return `${origin}/`;
   }
 
+  function passwordResetRedirectTo() {
+    return `${cleanOrigin(signInRedirectTo())}/reset-password.html`;
+  }
+
   function initLoginIntent() {
     const buttons = Array.from(document.querySelectorAll("[data-login-intent]"));
     const copy = document.getElementById("login-copy");
@@ -33,11 +37,11 @@
 
     const content = {
       customer: {
-        copy: "Enter your email to access your rewards",
-        note: "New to Peaches? We will create your account automatically after first sign-in. Staff access is approved by Peaches in Supabase.",
+        copy: "Log in or register with your email and password",
+        note: "New to Peaches? Register with your email and we will create your customer account automatically. Staff access is approved by Peaches in Supabase.",
       },
       staff: {
-        copy: "Use your staff email. Access opens after Peaches adds your account to Supabase staff.",
+        copy: "Log in with your staff email and password",
         note: "Selecting Staff does not grant access. Staff status is checked after sign-in; everyone else opens as a customer.",
       },
     };
@@ -54,6 +58,39 @@
         note.textContent = content[intent].note;
       });
     });
+  }
+
+  function setAuthMode(mode) {
+    const nextMode = mode === "register" ? "register" : "login";
+    const buttons = Array.from(document.querySelectorAll("[data-auth-mode]"));
+    const confirmGroup = document.getElementById("confirm-password-group");
+    const confirmInput = document.getElementById("confirm-password");
+    const passwordInput = document.getElementById("password");
+    const submitButton = document.getElementById("auth-submit");
+    const form = document.getElementById("email-login-form");
+
+    if (form) form.dataset.authMode = nextMode;
+    buttons.forEach((button) => {
+      const active = button.dataset.authMode === nextMode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+
+    if (confirmGroup) confirmGroup.hidden = nextMode !== "register";
+    if (confirmInput) confirmInput.required = nextMode === "register";
+    if (passwordInput) {
+      passwordInput.setAttribute("autocomplete", nextMode === "register" ? "new-password" : "current-password");
+    }
+    if (submitButton) submitButton.textContent = nextMode === "register" ? "Register" : "Log in";
+  }
+
+  function initAuthMode() {
+    const buttons = Array.from(document.querySelectorAll("[data-auth-mode]"));
+    if (!buttons.length) return;
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
+    });
+    setAuthMode("login");
   }
 
   async function currentRole() {
@@ -143,30 +180,120 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const input = document.getElementById("email");
+      const passwordInput = document.getElementById("password");
+      const confirmInput = document.getElementById("confirm-password");
       const email = input?.value.trim();
+      const password = passwordInput?.value || "";
       if (!email) {
         setStatus("Enter your email address.", "error");
+        return;
+      }
+      if (!password) {
+        setStatus("Enter your password.", "error");
+        return;
+      }
+      if (form.dataset.authMode === "register" && password !== (confirmInput?.value || "")) {
+        setStatus("Passwords do not match.", "error");
         return;
       }
 
       const button = form.querySelector("button[type='submit']");
       button.disabled = true;
-      setStatus("Sending secure sign-in link...", "");
+      setStatus(form.dataset.authMode === "register" ? "Creating your account..." : "Signing in...", "");
 
-      const { error } = await window.supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: signInRedirectTo(),
-        },
-      });
+      try {
+        if (form.dataset.authMode === "register") {
+          const { data, error } = await window.supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: signInRedirectTo(),
+            },
+          });
+          if (error) throw error;
+          if (data?.session) {
+            await routeSignedInUser();
+            return;
+          }
+          setStatus("Check your email to confirm your account, then log in with your password.", "success");
+          return;
+        }
 
-      button.disabled = false;
-      if (error) {
+        const { error } = await window.supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        await routeSignedInUser();
+      } catch (error) {
         setStatus(error.message, "error");
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    const forgotPasswordButton = document.getElementById("forgot-password");
+    forgotPasswordButton?.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const email = document.getElementById("email")?.value.trim();
+      if (!email) {
+        setStatus("Enter your email address to reset your password.", "error");
+        return;
+      }
+      forgotPasswordButton.disabled = true;
+      setStatus("Sending password reset email...", "");
+      try {
+        const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: passwordResetRedirectTo(),
+        });
+        if (error) throw error;
+        setStatus("Password reset email sent. Open it to set a new password.", "success");
+      } catch (error) {
+        setStatus(error.message, "error");
+      } finally {
+        forgotPasswordButton.disabled = false;
+      }
+    });
+  }
+
+  async function initPasswordReset() {
+    const form = document.getElementById("password-reset-form");
+    if (!form) return;
+
+    if (!window.supabase?.auth) {
+      setStatus("Supabase is not ready. Check the site configuration and reload.", "error");
+      return;
+    }
+
+    await hydrateSessionFromUrl();
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = document.getElementById("reset-password")?.value || "";
+      const confirmPassword = document.getElementById("reset-password-confirm")?.value || "";
+      if (!password) {
+        setStatus("Enter a new password.", "error");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setStatus("Passwords do not match.", "error");
         return;
       }
 
-      setStatus("Check your email. After you sign in, we will open the right app for your account.", "success");
+      const button = form.querySelector("button[type='submit']");
+      button.disabled = true;
+      setStatus("Updating password...", "");
+      try {
+        const { error } = await window.supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setStatus("Password updated. Log in with your new password.", "success");
+        if (window.supabase.auth.signOut) {
+          const { error: signOutError } = await window.supabase.auth.signOut();
+          if (signOutError) throw signOutError;
+        }
+        window.location.assign("/index.html");
+      } catch (error) {
+        setStatus(error.message, "error");
+      } finally {
+        button.disabled = false;
+      }
     });
   }
 
@@ -196,16 +323,22 @@
   window.PeachesAuth = {
     guardPageRole,
     hydrateSessionFromUrl,
+    initAuthMode,
     initLoginIntent,
     initEmailLogin,
+    initPasswordReset,
     pageForRole,
+    passwordResetRedirectTo,
     routeSignedInUser,
+    signInRedirectTo,
     signOut,
   };
 
   document.addEventListener("DOMContentLoaded", () => {
+    initAuthMode();
     initLoginIntent();
     initEmailLogin().catch((error) => setStatus(error.message, "error"));
+    initPasswordReset().catch((error) => setStatus(error.message, "error"));
     guardPageRole().catch(() => window.location.assign("/index.html"));
   });
 })();

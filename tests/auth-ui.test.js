@@ -9,16 +9,23 @@ function read(file) {
   return fs.readFileSync(path.join(repoRoot, file), "utf8");
 }
 
-test("index renders one secure email login with customer and staff intent copy", () => {
+test("index renders password login, registration, and reset entry points", () => {
   const html = read("index.html");
 
   assert.match(html, /id="email-login-form"/);
+  assert.match(html, /data-auth-mode="login"/);
+  assert.match(html, /data-auth-mode="register"/);
   assert.match(html, /data-login-intent/);
   assert.match(html, /Customer/);
   assert.match(html, /Staff/);
   assert.match(html, /Staff access is approved by Peaches/);
   assert.match(html, /type="email"/);
-  assert.match(html, /Continue with email/);
+  assert.match(html, /type="password"/);
+  assert.match(html, /id="confirm-password"/);
+  assert.match(html, /id="forgot-password"/);
+  assert.match(html, /Log in/);
+  assert.match(html, /Register/);
+  assert.doesNotMatch(html, /Continue with email/);
   assert.match(html, /class="phone-frame"/);
   assert.doesNotMatch(html, /class="status-bar"/);
   assert.doesNotMatch(html, /href="\/customer\.html"/);
@@ -73,14 +80,26 @@ test("Supabase client supports the v2 CDN global", () => {
   assert.match(source, /createClient/);
 });
 
-test("email sign-in redirects to the configured production site instead of localhost", () => {
+test("reset password page renders a password update form", () => {
+  const html = read("reset-password.html");
+
+  assert.match(html, /id="password-reset-form"/);
+  assert.match(html, /id="reset-password"/);
+  assert.match(html, /id="reset-password-confirm"/);
+  assert.match(html, /Update password/);
+  assert.match(html, /\/js\/auth-router\.js/);
+});
+
+test("password auth redirects use the configured production site instead of localhost", () => {
   const source = read("js/auth-router.js");
   const buildConfig = read("scripts/build-config.js");
 
   assert.match(source, /function signInRedirectTo/);
+  assert.match(source, /function passwordResetRedirectTo/);
   assert.match(source, /PEACHES_CONFIG\?\.SITE_URL/);
   assert.match(source, /peaches-puce\.vercel\.app/);
   assert.match(source, /emailRedirectTo: signInRedirectTo\(\)/);
+  assert.match(source, /redirectTo: passwordResetRedirectTo\(\)/);
   assert.match(buildConfig, /SITE_URL/);
   assert.match(buildConfig, /VERCEL_PROJECT_PRODUCTION_URL/);
 });
