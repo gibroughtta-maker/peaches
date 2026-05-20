@@ -1,0 +1,36 @@
+create or replace function public.handle_new_customer()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_birth_date date;
+begin
+  if (new.raw_user_meta_data ->> 'birth_date') ~ '^\d{4}-\d{2}-\d{2}$' then
+    v_birth_date := (new.raw_user_meta_data ->> 'birth_date')::date;
+  end if;
+
+  insert into public.customers (id, full_name, "Email", phone, birth_date)
+  values (
+    new.id,
+    coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), split_part(new.email, '@', 1), 'Customer'),
+    new.email,
+    coalesce(nullif(new.raw_user_meta_data ->> 'phone', ''), nullif(new.phone, ''), new.email, new.id::text),
+    v_birth_date
+  )
+  on conflict (id) do update
+    set full_name = coalesce(nullif(excluded.full_name, ''), public.customers.full_name),
+        "Email" = coalesce(excluded."Email", public.customers."Email"),
+        phone = coalesce(nullif(excluded.phone, ''), public.customers.phone),
+        birth_date = coalesce(excluded.birth_date, public.customers.birth_date);
+
+  insert into public.customer_qr_tokens (customer_id)
+  values (new.id)
+  on conflict (customer_id) do nothing;
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.handle_new_customer() from anon, authenticated, public;

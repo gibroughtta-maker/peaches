@@ -180,3 +180,11 @@ test("signup phone is persisted through Supabase customer trigger", () => {
   assert.match(secureQrMigration, /p_qr_token text default null/);
   assert.match(secureQrMigration, /Invalid or expired customer QR code/);
 });
+
+test("customer signup trigger writes the live required Email column", () => {
+  const migration = read("supabase/migrations/20260520000004_fix_customer_email_trigger.sql");
+
+  assert.match(migration, /insert into public\.customers \(id, full_name, "Email", phone, birth_date\)/);
+  assert.match(migration, /new\.email/);
+  assert.match(migration, /"Email" = coalesce\(excluded\."Email", public\.customers\."Email"\)/);
+});
