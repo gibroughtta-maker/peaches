@@ -121,6 +121,8 @@ test("Vercel sends baseline browser security headers", () => {
   const config = read("vercel.json");
 
   assert.match(config, /Content-Security-Policy/);
+  assert.match(config, /https:\/\/fonts\.googleapis\.com/);
+  assert.match(config, /https:\/\/fonts\.gstatic\.com/);
   assert.match(config, /frame-ancestors 'none'/);
   assert.match(config, /X-Content-Type-Options/);
   assert.match(config, /Referrer-Policy/);
@@ -187,4 +189,11 @@ test("customer signup trigger writes the live required Email column", () => {
   assert.match(migration, /insert into public\.customers \(id, full_name, "Email", phone, birth_date\)/);
   assert.match(migration, /new\.email/);
   assert.match(migration, /"Email" = coalesce\(excluded\."Email", public\.customers\."Email"\)/);
+});
+
+test("QR token generation uses Supabase extension schema explicitly", () => {
+  const migration = read("supabase/migrations/20260520000005_fix_qr_token_random_function.sql");
+
+  assert.match(migration, /extensions\.gen_random_bytes\(24\)/);
+  assert.doesNotMatch(migration, /[^.]gen_random_bytes\(24\)/);
 });
