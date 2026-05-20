@@ -25,8 +25,10 @@ test("index renders password login, registration, and reset entry points", () =>
   assert.match(html, /id="confirm-password"/);
   assert.match(html, /id="full-name"/);
   assert.match(html, /id="birth-date"/);
+  assert.match(html, /id="phone"/);
   assert.match(html, /autocomplete="name"/);
   assert.match(html, /autocomplete="bday"/);
+  assert.match(html, /autocomplete="tel"/);
   assert.match(html, /id="forgot-password"/);
   assert.match(html, /Log in/);
   assert.match(html, /Register/);
@@ -65,6 +67,7 @@ test("pages load Supabase runtime scripts and auth router", () => {
     assert.match(html, /@supabase\/supabase-js@2/);
     assert.match(html, /\/js\/supabase-client\.js/);
     assert.match(html, /\/js\/auth-router\.js/);
+    assert.match(html, /auth-router\.js\?v=20260520-signup-phone/);
   }
 });
 
@@ -143,4 +146,13 @@ test("staff QR scan verifies a customer before point and voucher actions", () =>
   assert.match(html, /id="confirm-add-points"/);
   assert.doesNotMatch(html, /Sophie Anderson/);
   assert.doesNotMatch(html, /Jessica Mills/);
+});
+
+test("signup phone is persisted through Supabase customer trigger", () => {
+  const migration = read("supabase/migrations/20260520000002_require_signup_phone.sql");
+
+  assert.match(migration, /alter table public\.customers[\s\S]*add column if not exists phone text/);
+  assert.match(migration, /alter table public\.staff[\s\S]*add column if not exists phone text/);
+  assert.match(migration, /raw_user_meta_data ->> 'phone'/);
+  assert.match(migration, /phone = coalesce\(nullif\(excluded\.phone, ''\), public\.customers\.phone\)/);
 });

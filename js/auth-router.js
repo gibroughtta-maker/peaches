@@ -38,6 +38,8 @@
     const fullNameInput = document.getElementById("full-name");
     const birthDateGroup = document.getElementById("birth-date-group");
     const birthDateInput = document.getElementById("birth-date");
+    const phoneGroup = document.getElementById("phone-group");
+    const phoneInput = document.getElementById("phone");
     const passwordGroup = document.getElementById("password-group");
     const passwordInput = document.getElementById("password");
     const submitButton = document.getElementById("auth-submit");
@@ -59,8 +61,10 @@
     if (passwordGroup) passwordGroup.hidden = isReset;
     if (fullNameGroup) fullNameGroup.hidden = !isRegister;
     if (birthDateGroup) birthDateGroup.hidden = !isRegister;
+    if (phoneGroup) phoneGroup.hidden = !isRegister;
     if (fullNameInput) fullNameInput.required = isRegister;
     if (birthDateInput) birthDateInput.required = isRegister;
+    if (phoneInput) phoneInput.required = isRegister;
     if (confirmGroup) confirmGroup.hidden = !isRegister;
     if (confirmInput) confirmInput.required = isRegister;
     if (passwordInput) {
@@ -176,11 +180,13 @@
       const input = document.getElementById("email");
       const fullNameInput = document.getElementById("full-name");
       const birthDateInput = document.getElementById("birth-date");
+      const phoneInput = document.getElementById("phone");
       const passwordInput = document.getElementById("password");
       const confirmInput = document.getElementById("confirm-password");
       const email = input?.value.trim();
       const fullName = fullNameInput?.value.trim() || "";
       const birthDate = birthDateInput?.value || "";
+      const phone = phoneInput?.value.trim() || "";
       const password = passwordInput?.value || "";
       if (!email) {
         setStatus(form.dataset.authMode === "reset" ? "Enter your email address to reset your password." : "Enter your email address.", "error");
@@ -215,6 +221,10 @@
         setStatus("Enter your birthday.", "error");
         return;
       }
+      if (form.dataset.authMode === "register" && !phone) {
+        setStatus("Enter your phone number.", "error");
+        return;
+      }
       if (form.dataset.authMode === "register" && password !== (confirmInput?.value || "")) {
         setStatus("Passwords do not match.", "error");
         return;
@@ -234,6 +244,7 @@
                 birth_date: birthDate,
                 full_name: fullName,
                 login_intent: "customer",
+                phone,
               },
               emailRedirectTo: signInRedirectTo(),
             },

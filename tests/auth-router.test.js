@@ -57,6 +57,8 @@ function loadRouter({
   const fullNameGroup = makeElement();
   const birthDate = makeElement("1990-05-01");
   const birthDateGroup = makeElement();
+  const phone = makeElement("+44 7700 900 123");
+  const phoneGroup = makeElement();
   const password = makeElement("secret123");
   const passwordGroup = makeElement();
   const confirmPassword = makeElement("secret123");
@@ -80,6 +82,8 @@ function loadRouter({
         if (id === "full-name-group") return fullNameGroup;
         if (id === "birth-date") return birthDate;
         if (id === "birth-date-group") return birthDateGroup;
+        if (id === "phone") return phone;
+        if (id === "phone-group") return phoneGroup;
         if (id === "password") return password;
         if (id === "password-group") return passwordGroup;
         if (id === "confirm-password") return confirmPassword;
@@ -295,6 +299,7 @@ test("initEmailLogin registers with email and password and waits for confirmatio
     birth_date: "1990-05-01",
     full_name: "Test User",
     login_intent: "customer",
+    phone: "+44 7700 900 123",
   });
   assert.deepEqual(assigned, []);
   assert.match(status.textContent, /confirm your account/i);
