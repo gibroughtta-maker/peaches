@@ -15,10 +15,11 @@ test("index renders password login, registration, and reset entry points", () =>
   assert.match(html, /id="email-login-form"/);
   assert.match(html, /data-auth-mode="login"/);
   assert.match(html, /data-auth-mode="register"/);
-  assert.match(html, /data-login-intent/);
-  assert.match(html, /Customer/);
-  assert.match(html, /Staff/);
-  assert.match(html, /Staff access is approved by Peaches/);
+  assert.doesNotMatch(html, /data-login-intent/);
+  assert.doesNotMatch(html, /Sign-in type/);
+  assert.doesNotMatch(html, />Customer</);
+  assert.doesNotMatch(html, />Staff</);
+  assert.match(html, /Staff access is managed by Peaches in Supabase/);
   assert.match(html, /type="email"/);
   assert.match(html, /type="password"/);
   assert.match(html, /id="confirm-password"/);

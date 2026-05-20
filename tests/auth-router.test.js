@@ -93,11 +93,7 @@ function loadRouter({
       },
       querySelectorAll(selector) {
         if (selector === "[data-auth-mode]") return authModeButtons;
-        return selector === "[data-login-intent]" ? elements : [];
-      },
-      querySelector(selector) {
-        if (selector === "[data-login-intent].active") return null;
-        return null;
+        return [];
       },
       addEventListener(type, handler) {
         listeners[type] = handler;
@@ -241,7 +237,6 @@ test("initEmailLogin signs out when logout query is present", async () => {
   assert.equal(status.textContent, "Signed out. Enter an email address to continue.");
   assert.equal(status.dataset.tone, "success");
 });
-
 test("initEmailLogin signs in with email and password", async () => {
   let signedIn = false;
   const calls = [];
@@ -270,7 +265,6 @@ test("initEmailLogin signs in with email and password", async () => {
   assert.equal(calls[0].password, "secret123");
   assert.deepEqual(assigned, ["/customer.html"]);
 });
-
 test("initEmailLogin registers with email and password and waits for confirmation", async () => {
   const calls = [];
   const { assigned, authModeButtons, form, status, window } = loadRouter({
@@ -306,7 +300,6 @@ test("initEmailLogin registers with email and password and waits for confirmatio
   assert.match(status.textContent, /confirm your account/i);
   assert.equal(status.dataset.tone, "success");
 });
-
 test("forgot password sends a reset email to the reset password page", async () => {
   const calls = [];
   const { forgotPassword, form, status, window } = loadRouter({
@@ -334,7 +327,6 @@ test("forgot password sends a reset email to the reset password page", async () 
   assert.match(status.textContent, /password reset/i);
   assert.equal(status.dataset.tone, "success");
 });
-
 test("forgot password opens a reset-link mode before sending email", async () => {
   const calls = [];
   const { backToLogin, forgotPassword, form, status, submitButton, window } = loadRouter({
@@ -370,7 +362,6 @@ test("forgot password opens a reset-link mode before sending email", async () =>
   assert.equal(calls[0][1].redirectTo, "https://peaches-puce.vercel.app/reset-password.html");
   assert.match(status.textContent, /password reset/i);
 });
-
 test("reset password page updates the current user's password", async () => {
   const updated = [];
   const signedOut = [];
@@ -401,40 +392,4 @@ test("reset password page updates the current user's password", async () => {
   assert.deepEqual(assigned, ["/index.html"]);
   assert.match(status.textContent, /updated/i);
   assert.equal(status.dataset.tone, "success");
-});
-
-test("login intent changes copy without granting a frontend role", () => {
-  const copy = { textContent: "" };
-  const note = { textContent: "" };
-  const buttons = [];
-  const customer = {
-    classList: { toggle() {} },
-    dataset: { loginIntent: "customer" },
-    setAttribute() {},
-    addEventListener(_event, handler) { this.handler = handler; },
-  };
-  const staff = {
-    classList: { toggle() {} },
-    dataset: { loginIntent: "staff" },
-    setAttribute() {},
-    addEventListener(_event, handler) { this.handler = handler; },
-  };
-  buttons.push(customer, staff);
-
-  const { window } = loadRouter({
-    profile: null,
-    supabase: {},
-  });
-  window.document.querySelectorAll = (selector) => selector === "[data-login-intent]" ? buttons : [];
-  window.document.getElementById = (id) => {
-    if (id === "login-copy") return copy;
-    if (id === "role-note") return note;
-    return null;
-  };
-
-  window.PeachesAuth.initLoginIntent();
-  staff.handler();
-
-  assert.match(copy.textContent, /staff email/i);
-  assert.match(note.textContent, /does not grant access/i);
 });

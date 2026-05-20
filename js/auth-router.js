@@ -29,43 +29,6 @@
     return `${cleanOrigin(signInRedirectTo())}/reset-password.html`;
   }
 
-  function initLoginIntent() {
-    const buttons = Array.from(document.querySelectorAll("[data-login-intent]"));
-    const copy = document.getElementById("login-copy");
-    const note = document.getElementById("role-note");
-    if (!buttons.length || !copy || !note) return;
-
-    const content = {
-      customer: {
-        copy: "Log in or register with your email and password",
-        note: "New to Peaches? Register with your email and we will create your customer account automatically. Staff access is approved by Peaches in Supabase.",
-      },
-      staff: {
-        copy: "Log in with your staff email and password",
-        note: "Selecting Staff does not grant access. Staff status is checked after sign-in; everyone else opens as a customer.",
-      },
-    };
-
-    buttons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const intent = button.dataset.loginIntent === "staff" ? "staff" : "customer";
-        buttons.forEach((item) => {
-          const active = item === button;
-          item.classList.toggle("active", active);
-          item.setAttribute("aria-pressed", String(active));
-        });
-        copy.textContent = content[intent].copy;
-        note.textContent = content[intent].note;
-      });
-    });
-  }
-
-  function selectedLoginIntent() {
-    return document.querySelector?.("[data-login-intent].active")?.dataset.loginIntent === "staff"
-      ? "staff"
-      : "customer";
-  }
-
   function setAuthMode(mode) {
     const nextMode = mode === "register" || mode === "reset" ? mode : "login";
     const buttons = Array.from(document.querySelectorAll("[data-auth-mode]"));
@@ -112,7 +75,7 @@
     if (copy && isReset) copy.textContent = "Enter your email and we will send a password reset link";
     if (copy && !isReset) copy.textContent = "Log in or register with your email and password";
     if (note && isReset) note.textContent = "Use the link in your email to open the password reset page and choose a new password.";
-    if (note && !isReset) note.textContent = "New to Peaches? Register with your email and we will create your customer account automatically. Staff access is approved by Peaches in Supabase.";
+    if (note && !isReset) note.textContent = "New to Peaches? Register with your email and we will create your customer account automatically. Staff access is managed by Peaches in Supabase.";
   }
 
   function initAuthMode() {
@@ -270,7 +233,7 @@
               data: {
                 birth_date: birthDate,
                 full_name: fullName,
-                login_intent: selectedLoginIntent(),
+                login_intent: "customer",
               },
               emailRedirectTo: signInRedirectTo(),
             },
@@ -379,8 +342,6 @@
     guardPageRole,
     hydrateSessionFromUrl,
     initAuthMode,
-    initLoginIntent,
-    selectedLoginIntent,
     initEmailLogin,
     initPasswordReset,
     pageForRole,
@@ -392,7 +353,6 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     initAuthMode();
-    initLoginIntent();
     initEmailLogin().catch((error) => setStatus(error.message, "error"));
     initPasswordReset().catch((error) => setStatus(error.message, "error"));
     guardPageRole().catch(() => window.location.assign("/index.html"));
