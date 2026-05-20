@@ -1,13 +1,57 @@
 (function () {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  let profile = null;
   let customers = [];
-  let selectedCustomer = null;
+  let filteredCustomers = [];
   let vouchers = [];
+  let selectedCustomer = null;
   let selectedVoucher = null;
+  let selectedVerifiedByScan = false;
   let qrScanner = null;
   let scanning = false;
-  let addPointsUnlockedByScan = false;
 
-  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function setText(selector, value) {
+    document.querySelectorAll(selector).forEach((node) => {
+      node.textContent = value;
+    });
+  }
+
+  function setStatus(selector, message, tone) {
+    const node = document.querySelector(selector);
+    if (!node) return;
+    node.textContent = message || "";
+    node.dataset.tone = tone || "";
+  }
+
+  function initials(name) {
+    return window.PeachesData?.initials(name) || "--";
+  }
+
+  function formatDate(value) {
+    if (!value) return "";
+    return new Date(value).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  function formatRewardMeta(voucher) {
+    const parts = [];
+    if (voucher.retail_value) parts.push(`Worth &pound;${Number(voucher.retail_value).toFixed(2)}`);
+    if (voucher.valid_months) parts.push(`${Number(voucher.valid_months)} month voucher`);
+    return parts.join(" · ") || escapeHtml(voucher.description || "Peaches reward");
+  }
 
   function extractCustomerId(decoded) {
     if (!decoded) return null;
@@ -15,324 +59,401 @@
     if (UUID_REGEX.test(text)) return text.toLowerCase();
     try {
       const url = new URL(text);
-      const fromQuery = url.searchParams.get("customer");
-      if (fromQuery && UUID_REGEX.test(fromQuery)) return fromQuery.toLowerCase();
-    } catch (e) {
-      // ignore
+      const customerId = url.searchParams.get("customer") || url.searchParams.get("customer_id");
+      if (customerId && UUID_REGEX.test(customerId)) return customerId.toLowerCase();
+    } catch (error) {
+      // Plain UUID QR codes are expected, so non-URL text is fine.
     }
     return null;
   }
 
-  function setScanStatus(message) {
-    const status = document.querySelector("#scan-status span:last-child");
-    if (status) status.textContent = message;
+  async function show(screenId) {
+    document.querySelectorAll(".screen").forEach((screen) => {
+      screen.classList.toggle("active", screen.id === screenId);
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    if (screenId === "scan-screen") {
+      await startScanner();
+    } else {
+      await stopScanner();
+    }
   }
 
   async function stopScanner() {
     if (!qrScanner || !scanning) return;
-    try { await qrScanner.stop(); } catch (e) { /* ignore */ }
+    try {
+      await qrScanner.stop();
+    } catch (error) {
+      // Camera may already be stopped by the browser.
+    }
     scanning = false;
   }
 
   async function startScanner() {
     if (!window.Html5Qrcode) {
-      setScanStatus("Scanner library not available.");
+      setStatus("#scan-status", "QR scanner library did not load.", "error");
       return;
     }
-    const reader = document.getElementById("qr-reader");
-    if (!reader) return;
     if (scanning) return;
 
-    addPointsUnlockedByScan = false;
-    setScanStatus("Starting camera...");
-
+    setStatus("#scan-status", "Starting camera...");
     if (!qrScanner) qrScanner = new window.Html5Qrcode("qr-reader");
+
     try {
       await qrScanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
+        { fps: 10, qrbox: { width: 230, height: 230 } },
         onScanSuccess,
         () => {},
       );
       scanning = true;
-      setScanStatus("Point camera at client's QR code");
+      setStatus("#scan-status", "Point camera at the customer's QR code.");
     } catch (error) {
-      console.error(error);
-      setScanStatus("Camera access denied. Allow camera permissions and retry.");
+      setStatus("#scan-status", "Camera blocked. Allow camera access, or use the manual fallback for testing.", "error");
     }
   }
 
   async function onScanSuccess(decodedText) {
     const customerId = extractCustomerId(decodedText);
     if (!customerId) {
-      setScanStatus("QR code not recognised. Try another one.");
+      setStatus("#scan-status", "QR code not recognised. Try the customer's Peaches QR.", "error");
       return;
     }
-    await stopScanner();
-    setScanStatus("Client found. Opening add points...");
-    const opened = await selectCustomerById(customerId, { navigate: false });
-    if (!opened) {
-      setScanStatus("Customer not found in database.");
-      await startScanner();
-      return;
-    }
-    resetAddPointsForm();
-    addPointsUnlockedByScan = true;
-    renderAddPointsScreen();
-    window.show?.("add-points-screen");
+    await openCustomer(customerId, { verifiedByScan: true, navigateTo: "client-detail" });
   }
 
-  window.startScanner = startScanner;
-  window.stopScanner = stopScanner;
+  function renderStaff() {
+    const name = profile?.display_name || "Staff";
+    const role = profile?.role || "therapist";
+    setText("#staff-name", name);
+    setText("#staff-avatar", initials(name));
+    setText("#staff-meta", `${role} · Peaches`);
+  }
 
-  function setText(selector, text, root) {
-    (root || document).querySelectorAll(selector).forEach((node) => {
-      node.textContent = text;
+  function renderStats(transactions) {
+    const today = new Date().toISOString().slice(0, 10);
+    const todayTx = transactions.filter((tx) => String(tx.created_at || "").slice(0, 10) === today);
+    const earnedToday = todayTx
+      .filter((tx) => tx.points_delta > 0)
+      .reduce((sum, tx) => sum + Number(tx.points_delta || 0), 0);
+    const visitsToday = new Set(todayTx.map((tx) => tx.customer_id)).size;
+    const topPoints = customers.reduce((max, customer) => Math.max(max, Number(customer.points || 0)), 0);
+
+    setText("#stat-clients", String(customers.length));
+    setText("#stat-points", `+${earnedToday}`);
+    setText("#stat-visits", String(visitsToday));
+    setText("#stat-top", String(topPoints));
+  }
+
+  function clientRow(customer) {
+    const verified = selectedVerifiedByScan && selectedCustomer?.id === customer.id;
+    return `
+      <button class="client-row ${verified ? "verified" : ""}" type="button" data-customer-id="${escapeHtml(customer.id)}">
+        <span class="client-avatar">${escapeHtml(initials(customer.full_name))}</span>
+        <span class="client-main">
+          <span class="client-name">${escapeHtml(customer.full_name)}</span>
+          <span class="client-sub">${escapeHtml(customer.phone || "")}</span>
+        </span>
+        <span>
+          <span class="points">${Number(customer.points || 0)}</span>
+          <span class="points-label">pts</span>
+        </span>
+      </button>
+    `;
+  }
+
+  function renderCustomers(nextCustomers) {
+    filteredCustomers = nextCustomers;
+    const list = document.getElementById("customer-list");
+    if (!list) return;
+
+    setText("#customer-count", `${filteredCustomers.length} shown`);
+    list.innerHTML = filteredCustomers.length
+      ? filteredCustomers.map(clientRow).join("")
+      : `<div class="empty-state">No customers found.</div>`;
+
+    list.querySelectorAll("[data-customer-id]").forEach((row) => {
+      row.addEventListener("click", () => {
+        openCustomer(row.dataset.customerId, { verifiedByScan: false, navigateTo: "client-detail" })
+          .catch((error) => setStatus("#dashboard-status", error.message, "error"));
+      });
     });
   }
 
-  function initials(name) {
-    return window.PeachesData?.initials(name) || "??";
-  }
+  function renderDetail(transactions) {
+    if (!selectedCustomer) return;
+    const balance = Number(selectedCustomer.points || 0);
+    const verifiedLabel = selectedVerifiedByScan ? "QR verified" : "Not scanned";
 
-  function renderCustomerRow(customer) {
-    return `
-      <div class="client-row" data-customer-id="${customer.id}">
-        <div class="client-av">${initials(customer.full_name)}</div>
-        <div class="client-info">
-          <div class="client-name">${customer.full_name}</div>
-          <div class="client-phone">${customer.phone}</div>
-        </div>
-        <div class="client-pts"><div class="pts-big">${customer.points}</div><div class="pts-tiny">pts</div></div>
-        <span class="chevron">&gt;</span>
-      </div>
-    `;
+    setText("#detail-name", selectedCustomer.full_name);
+    setText("#detail-sub", selectedCustomer.phone || "Customer");
+    setText("#detail-points", String(balance));
+    setText("#verified-state", verifiedLabel);
+    setText("#add-points-sub", `${selectedCustomer.full_name} · ${balance} pts`);
+    setText("#voucher-sub", `${selectedCustomer.full_name} · ${balance} pts available`);
+
+    const note = document.getElementById("scan-required-note");
+    const addButton = document.getElementById("go-add-points");
+    const redeemButton = document.getElementById("go-redeem");
+    if (note) note.hidden = selectedVerifiedByScan;
+    if (addButton) addButton.disabled = !selectedVerifiedByScan;
+    if (redeemButton) redeemButton.disabled = !selectedVerifiedByScan;
+
+    const txList = document.getElementById("transaction-list");
+    if (txList) {
+      txList.innerHTML = transactions.length
+        ? transactions.map(renderTransaction).join("")
+        : `<div class="empty-state">No point history yet.</div>`;
+    }
+
+    renderVouchers();
+    renderCustomers(filteredCustomers.length ? filteredCustomers : customers);
   }
 
   function renderTransaction(tx) {
-    const positive = tx.points_delta >= 0;
+    const delta = Number(tx.points_delta || 0);
+    const positive = delta >= 0;
     const sign = positive ? "+" : "";
-    const date = tx.created_at
-      ? new Date(tx.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-      : "";
     return `
-      <li class="tx-item">
-        <div class="tx-dot ${positive ? "plus" : "minus"}"></div>
-        <div class="tx-info"><div class="tx-name">${tx.note || (positive ? "Points added" : "Reward redeemed")}</div><div class="tx-meta">${date}</div></div>
-        <div class="tx-pts ${positive ? "plus" : "minus"}">${sign}${tx.points_delta}</div>
-      </li>
+      <div class="tx-item">
+        <div>
+          <div class="tx-name">${escapeHtml(tx.note || (positive ? "Points added" : "Voucher redeemed"))}</div>
+          <div class="tx-meta">${escapeHtml(formatDate(tx.created_at))}</div>
+        </div>
+        <div class="tx-points ${positive ? "plus" : "minus"}">${sign}${delta}</div>
+      </div>
     `;
   }
 
-  function renderVoucher(voucher) {
-    const unlocked = selectedCustomer && selectedCustomer.points >= voucher.points_cost;
-    const meta = voucher.retail_value
-      ? `Worth £${Number(voucher.retail_value).toFixed(2)} · ${voucher.valid_months || 6} month voucher`
-      : (voucher.description || "Peaches reward");
+  function renderVouchers() {
+    const list = document.getElementById("voucher-list");
+    const button = document.getElementById("redeem-btn");
+    if (!list || !button || !selectedCustomer) return;
+
+    const balance = Number(selectedCustomer.points || 0);
+    list.innerHTML = vouchers.length
+      ? vouchers.map((voucher) => renderVoucher(voucher, balance)).join("")
+      : `<div class="empty-state">No active vouchers configured.</div>`;
+
+    list.querySelectorAll("[data-voucher-id]").forEach((card) => {
+      card.addEventListener("click", () => {
+        const voucher = vouchers.find((item) => item.id === card.dataset.voucherId);
+        if (!voucher || balance < Number(voucher.points_cost || 0)) return;
+        selectedVoucher = voucher;
+        renderVouchers();
+      });
+    });
+
+    if (selectedVoucher && balance >= Number(selectedVoucher.points_cost || 0)) {
+      button.disabled = false;
+      button.textContent = `Redeem - ${selectedVoucher.description || selectedVoucher.name} (-${selectedVoucher.points_cost} pts)`;
+    } else {
+      selectedVoucher = null;
+      button.disabled = true;
+      button.textContent = "Choose Voucher";
+    }
+  }
+
+  function renderVoucher(voucher, balance) {
+    const cost = Number(voucher.points_cost || 0);
+    const unlocked = balance >= cost;
+    const selected = selectedVoucher?.id === voucher.id;
+    const status = unlocked ? `${cost} pts` : `${Math.max(cost - balance, 0)} to go`;
     return `
-      <div class="voucher-card ${selectedVoucher?.id === voucher.id ? "selected" : ""}" data-voucher-id="${voucher.id}" style="${unlocked ? "" : "opacity:.45;cursor:default;"}">
-        <div class="voucher-emoji" style="${unlocked ? "" : "filter:grayscale(1);"}">${voucher.emoji || "*"}</div>
-        <div class="voucher-info">
-          <div class="voucher-name">${voucher.name}</div>
-          <div class="voucher-desc">${meta}</div>
-        </div>
-        <div class="voucher-cost">
-          <div class="voucher-pts">${voucher.points_cost}</div>
-          <div class="voucher-pts-label">pts</div>
-        </div>
-        <div class="check-circle">OK</div>
-      </div>
+      <button class="voucher-card ${unlocked ? "unlocked" : "locked"} ${selected ? "selected" : ""}" type="button" data-voucher-id="${escapeHtml(voucher.id)}" ${unlocked ? "" : "disabled"}>
+        <span class="voucher-icon">${escapeHtml(voucher.emoji || "*")}</span>
+        <span class="voucher-main">
+          <span class="voucher-name">${escapeHtml(voucher.description || voucher.name)}</span>
+          <span class="voucher-desc">${formatRewardMeta(voucher)}</span>
+        </span>
+        <span>
+          <span class="points">${cost}</span>
+          <span class="points-label">${escapeHtml(status)}</span>
+        </span>
+      </button>
     `;
+  }
+
+  function applyCustomerSearch() {
+    const term = document.getElementById("customer-search")?.value.trim().toLowerCase() || "";
+    const matches = customers.filter((customer) => (
+      String(customer.full_name || "").toLowerCase().includes(term)
+      || String(customer.phone || "").toLowerCase().includes(term)
+    ));
+    renderCustomers(matches);
+  }
+
+  async function openCustomer(customerId, options = {}) {
+    const verifiedByScan = Boolean(options.verifiedByScan);
+    if (!customerId || !UUID_REGEX.test(customerId)) {
+      throw new Error("Enter a valid customer UUID.");
+    }
+
+    await stopScanner();
+    const customer = customers.find((item) => item.id === customerId)
+      || await window.peachesData.getCustomer(customerId);
+    if (!customer) throw new Error("Customer was not found in Supabase.");
+
+    selectedCustomer = customer;
+    selectedVerifiedByScan = verifiedByScan;
+    selectedVoucher = null;
+    setStatus("#scan-status", verifiedByScan ? "Customer verified." : "");
+
+    const transactions = await window.peachesData.listTransactions(customer.id, 20);
+    renderDetail(transactions);
+    resetForms();
+    if (options.navigateTo) await show(options.navigateTo);
   }
 
   async function refreshSelectedCustomer() {
     if (!selectedCustomer) return;
-    const [fresh, transactions] = await Promise.all([
+    const [freshCustomer, transactions, staffTransactions] = await Promise.all([
       window.peachesData.getCustomer(selectedCustomer.id),
-      window.peachesData.listTransactions(selectedCustomer.id, 10),
+      window.peachesData.listTransactions(selectedCustomer.id, 20),
+      listStaffTransactions(),
     ]);
-    selectedCustomer = fresh;
-    renderClientDetail(transactions);
-    renderDashboard(customers.map((customer) => (
-      customer.id === fresh.id ? fresh : customer
-    )));
+
+    selectedCustomer = freshCustomer;
+    customers = customers.map((customer) => customer.id === freshCustomer.id ? freshCustomer : customer);
+    renderStats(staffTransactions);
+    applyCustomerSearch();
+    renderDetail(transactions);
   }
 
-  function renderClientDetail(transactions) {
-    if (!selectedCustomer) return;
-    setText("#client-detail .detail-title", selectedCustomer.full_name);
-    setText("#client-detail .detail-sub", selectedCustomer.phone);
-    setText("#client-detail .pts-band-val", String(selectedCustomer.points));
-    setText("#voucher-screen .detail-sub", `${selectedCustomer.full_name} - ${selectedCustomer.points} pts available`);
-    renderAddPointsScreen();
-
-    const txList = document.querySelector("#client-detail .tx-list");
-    if (txList) {
-      txList.innerHTML = transactions.length
-        ? transactions.map(renderTransaction).join("")
-        : `<li class="tx-item"><div class="tx-info"><div class="tx-name">No point history yet</div><div class="tx-meta">This customer has no transactions.</div></div><div class="tx-pts plus">0</div></li>`;
-    }
-
-    renderVouchers();
+  function resetForms() {
+    const points = document.getElementById("add-points-input");
+    const note = document.getElementById("add-points-note");
+    if (points) points.value = "";
+    if (note) note.value = "";
+    setStatus("#add-points-status", "");
+    setStatus("#redeem-status", "");
   }
 
-  function resetAddPointsForm() {
-    const pointsInput = document.getElementById("add-points-input");
-    const noteInput = document.getElementById("add-points-note");
-    if (pointsInput) pointsInput.value = "";
-    if (noteInput) noteInput.value = "";
+  async function listStaffTransactions() {
+    const { data, error } = await window.supabase
+      .from("transactions")
+      .select("id, customer_id, points_delta, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    return data || [];
   }
 
-  function renderAddPointsScreen() {
-    if (!selectedCustomer) return;
-    setText("#add-points-screen .detail-sub", `${selectedCustomer.full_name} - ${selectedCustomer.points} pts`);
-    setText("#add-points-screen .found-name", selectedCustomer.full_name);
-    setText("#add-points-screen .found-pts", `Current balance: ${selectedCustomer.points} pts`);
-    const avatar = document.getElementById("add-points-av");
-    if (avatar) avatar.textContent = initials(selectedCustomer.full_name);
-  }
-
-  function renderDashboard(nextCustomers) {
+  async function loadData() {
+    profile = await window.peachesData.getCurrentProfile();
+    renderStaff();
+    const [nextCustomers, nextVouchers, transactions] = await Promise.all([
+      window.peachesData.listCustomers(),
+      window.peachesData.listActiveVouchers(),
+      listStaffTransactions(),
+    ]);
     customers = nextCustomers;
-    const list = document.querySelector("#dashboard .client-list");
-    if (!list) return;
-    list.innerHTML = customers.map(renderCustomerRow).join("");
-    list.querySelectorAll(".client-row").forEach((row) => {
-      row.addEventListener("click", async () => {
-        selectedCustomer = customers.find((customer) => customer.id === row.dataset.customerId);
-        addPointsUnlockedByScan = false;
-        const transactions = await window.peachesData.listTransactions(selectedCustomer.id, 10);
-        renderClientDetail(transactions);
-        window.show?.("client-detail");
-      });
-    });
+    vouchers = nextVouchers;
+    renderStats(transactions);
+    renderCustomers(customers);
 
-    setText("#dashboard .stat-card-num", String(customers.length), document.querySelector("#dashboard .stat-card"));
+    const scannedCustomerId = new URLSearchParams(window.location.search).get("customer");
+    if (scannedCustomerId) {
+      await openCustomer(scannedCustomerId, { verifiedByScan: true, navigateTo: "client-detail" });
+    }
   }
 
-  async function selectCustomerById(customerId, options = {}) {
-    const { navigate = true } = options;
-    if (!customerId) return false;
-    selectedCustomer = customers.find((customer) => customer.id === customerId)
-      || await window.peachesData.getCustomer(customerId);
-    if (!selectedCustomer) return false;
-    if (navigate) addPointsUnlockedByScan = false;
-    const transactions = await window.peachesData.listTransactions(selectedCustomer.id, 10);
-    renderClientDetail(transactions);
-    if (navigate) window.show?.("client-detail");
-    return true;
-  }
-
-  function renderVouchers() {
-    const lists = document.querySelectorAll("#voucher-screen .voucher-list");
-    if (!lists.length) return;
-    lists[0].innerHTML = vouchers
-      .filter((voucher) => !selectedCustomer || selectedCustomer.points >= voucher.points_cost)
-      .map(renderVoucher)
-      .join("") || `<div style="font-size:12px;color:var(--text-light);">No unlocked rewards.</div>`;
-    if (lists[1]) {
-      lists[1].innerHTML = vouchers
-        .filter((voucher) => selectedCustomer && selectedCustomer.points < voucher.points_cost)
-        .map(renderVoucher)
-        .join("");
+  async function addPoints() {
+    const button = document.getElementById("confirm-add-points");
+    const delta = Number(document.getElementById("add-points-input")?.value || 0);
+    const note = document.getElementById("add-points-note")?.value.trim() || "Points added";
+    if (!selectedVerifiedByScan) {
+      setStatus("#add-points-status", "Scan the customer's QR code first.", "error");
+      return;
+    }
+    if (!Number.isInteger(delta) || delta <= 0) {
+      setStatus("#add-points-status", "Enter whole points greater than 0.", "error");
+      return;
     }
 
-    document.querySelectorAll("#voucher-screen .voucher-card[data-voucher-id]").forEach((card) => {
-      card.addEventListener("click", () => {
-        const voucher = vouchers.find((item) => item.id === card.dataset.voucherId);
-        if (!selectedCustomer || selectedCustomer.points < voucher.points_cost) return;
-        selectedVoucher = voucher;
-        renderVouchers();
-        const btn = document.getElementById("redeem-btn");
-        if (btn) btn.textContent = `Redeem - ${voucher.name} (-${voucher.points_cost} pts)`;
+    button.disabled = true;
+    setStatus("#add-points-status", "Saving points...");
+    try {
+      await window.peachesData.addPoints({ customerId: selectedCustomer?.id, delta, note });
+      setStatus("#add-points-status", "Points added.", "success");
+      selectedVerifiedByScan = false;
+      await refreshSelectedCustomer();
+      await show("client-detail");
+    } catch (error) {
+      setStatus("#add-points-status", error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function redeemVoucher() {
+    const button = document.getElementById("redeem-btn");
+    if (!selectedVerifiedByScan) {
+      setStatus("#redeem-status", "Scan the customer's QR code first.", "error");
+      return;
+    }
+    if (!selectedVoucher) {
+      setStatus("#redeem-status", "Choose an unlocked voucher.", "error");
+      return;
+    }
+
+    button.disabled = true;
+    setStatus("#redeem-status", "Redeeming voucher...");
+    try {
+      await window.peachesData.redeemVoucher({
+        customerId: selectedCustomer?.id,
+        voucher: selectedVoucher,
       });
+      setStatus("#redeem-status", "Voucher redeemed.", "success");
+      selectedVerifiedByScan = false;
+      selectedVoucher = null;
+      await refreshSelectedCustomer();
+      await show("client-detail");
+    } catch (error) {
+      setStatus("#redeem-status", error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function bindEvents() {
+    document.querySelectorAll("[data-show]").forEach((button) => {
+      button.addEventListener("click", () => show(button.dataset.show));
+    });
+    document.getElementById("open-scanner")?.addEventListener("click", () => show("scan-screen"));
+    document.getElementById("go-add-points")?.addEventListener("click", () => show("add-points-screen"));
+    document.getElementById("go-redeem")?.addEventListener("click", () => show("voucher-screen"));
+    document.getElementById("confirm-add-points")?.addEventListener("click", addPoints);
+    document.getElementById("redeem-btn")?.addEventListener("click", redeemVoucher);
+    document.getElementById("customer-search")?.addEventListener("input", applyCustomerSearch);
+    document.getElementById("manual-open-customer")?.addEventListener("click", () => {
+      const value = document.getElementById("manual-customer-id")?.value.trim();
+      openCustomer(value, { verifiedByScan: true, navigateTo: "client-detail" })
+        .catch((error) => setStatus("#scan-status", error.message, "error"));
+    });
+    document.getElementById("sign-out-button")?.addEventListener("click", () => {
+      window.PeachesAuth?.signOut?.();
     });
   }
 
   async function init() {
     if (document.body.dataset.requiredRole !== "therapist" || !window.peachesData) return;
-
-    const [nextCustomers, nextVouchers] = await Promise.all([
-      window.peachesData.listCustomers(),
-      window.peachesData.listActiveVouchers(),
-    ]);
-    vouchers = nextVouchers;
-    selectedCustomer = nextCustomers[0] || null;
-    selectedVoucher = null;
-    renderDashboard(nextCustomers);
-    const scannedCustomerId = new URLSearchParams(window.location.search).get("customer");
-    const openedScannedCustomer = scannedCustomerId && await selectCustomerById(scannedCustomerId);
-    if (!openedScannedCustomer && selectedCustomer) {
-      await refreshSelectedCustomer();
-    }
-
-    const searchInput = document.querySelector("#dashboard .search-wrap input");
-    if (searchInput) {
-      searchInput.addEventListener("input", () => {
-        const term = searchInput.value.trim().toLowerCase();
-        renderDashboard(nextCustomers.filter((customer) =>
-          customer.full_name.toLowerCase().includes(term) || customer.phone.toLowerCase().includes(term),
-        ));
-      });
-    }
-
-    const confirmButton = document.getElementById("confirm-add-points");
-    if (confirmButton) {
-      confirmButton.addEventListener("click", async (event) => {
-        event.preventDefault();
-        const pointsInput = document.getElementById("add-points-input");
-        const noteInput = document.getElementById("add-points-note");
-        const delta = Number(pointsInput?.value || 0);
-        if (!addPointsUnlockedByScan) {
-          alert("Scan the customer's QR code before adding points.");
-          return;
-        }
-        if (!Number.isFinite(delta) || delta <= 0) {
-          alert("Enter the points to add.");
-          return;
-        }
-        confirmButton.disabled = true;
-        try {
-          await window.peachesData.addPoints({
-            customerId: selectedCustomer?.id,
-            delta,
-            note: noteInput?.value || "Points added",
-          });
-          resetAddPointsForm();
-          addPointsUnlockedByScan = false;
-          await refreshSelectedCustomer();
-          window.show?.("client-detail");
-        } catch (error) {
-          alert(error.message);
-        } finally {
-          confirmButton.disabled = false;
-        }
-      });
-    }
-
-    const redeemButton = document.getElementById("redeem-btn");
-    if (redeemButton) {
-      redeemButton.addEventListener("click", async (event) => {
-        event.preventDefault();
-        redeemButton.disabled = true;
-        try {
-          await window.peachesData.redeemVoucher({
-            customerId: selectedCustomer?.id,
-            voucher: selectedVoucher,
-          });
-          selectedVoucher = null;
-          await refreshSelectedCustomer();
-          window.show?.("client-detail");
-        } catch (error) {
-          alert(error.message);
-        } finally {
-          redeemButton.disabled = false;
-        }
-      });
+    bindEvents();
+    try {
+      await loadData();
+      document.body.dataset.appReady = "true";
+    } catch (error) {
+      setStatus("#dashboard-status", error.message, "error");
+      console.error(error);
     }
   }
 
+  window.show = show;
+  window.startScanner = startScanner;
+  window.stopScanner = stopScanner;
+
   document.addEventListener("DOMContentLoaded", () => {
-    init().catch((error) => console.error(error));
+    init();
   });
 })();

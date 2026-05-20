@@ -113,15 +113,18 @@ test("customer app renders QR per customer and keeps history back arrow-only", (
   assert.doesNotMatch(source, />Back<\/button>/);
 });
 
-test("staff QR scan opens add-points screen after selecting the customer", () => {
+test("staff QR scan verifies a customer before point and voucher actions", () => {
   const source = read("js/staff-app.js");
   const html = read("staff.html");
 
-  assert.match(source, /selectCustomerById\(customerId,\s*\{\s*navigate:\s*false\s*\}\)/);
-  assert.match(source, /function selectCustomerById\(customerId,\s*options = \{\}\)/);
-  assert.match(source, /addPointsUnlockedByScan = true/);
-  assert.match(source, /Scan the customer's QR code before adding points/);
-  assert.match(source, /window\.show\?\.\("add-points-screen"\)/);
+  assert.match(source, /openCustomer\(customerId,\s*\{\s*verifiedByScan:\s*true,\s*navigateTo:\s*"client-detail"\s*\}\)/);
+  assert.match(source, /selectedVerifiedByScan = verifiedByScan/);
+  assert.match(html, /Scan the customer's QR code before adding points/);
+  assert.match(source, /getElementById\("go-add-points"\)/);
+  assert.match(source, /getElementById\("go-redeem"\)/);
   assert.match(html, /id="add-points-screen"/);
+  assert.match(html, /id="voucher-screen"/);
   assert.match(html, /id="confirm-add-points"/);
+  assert.doesNotMatch(html, /Sophie Anderson/);
+  assert.doesNotMatch(html, /Jessica Mills/);
 });
