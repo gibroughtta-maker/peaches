@@ -56,7 +56,7 @@ function tableClient(rowsByTable, calls) {
   };
 }
 
-function fakeSupabase(rowsByTable, user) {
+function fakeSupabase(rowsByTable, user, rpcRowsByName = {}) {
   const calls = [];
   const rpcCalls = [];
   return {
@@ -75,6 +75,9 @@ function fakeSupabase(rowsByTable, user) {
     },
     rpc(name, params) {
       rpcCalls.push({ name, params });
+      if (Object.hasOwn(rpcRowsByName, name)) {
+        return Promise.resolve({ data: rpcRowsByName[name], error: null });
+      }
       return Promise.resolve({ data: { id: "tx-1" }, error: null });
     },
   };
@@ -182,6 +185,31 @@ test("staff point changes are written through the add_points RPC", async () => {
         p_voucher_id: null,
         p_qr_token: "qr-token-1",
       },
+    },
+  ]);
+});
+
+test("smoothest peach leaderboard is read from the three month RPC", async () => {
+  const PeachesData = loadDataLayer();
+  const supabase = fakeSupabase(
+    {},
+    { id: "staff-1", email: "sophie@example.com" },
+    {
+      smoothest_peaches: [
+        { rank: 1, customer_id: "customer-1", full_name: "Wendy", earned_points: 200 },
+      ],
+    },
+  );
+
+  const rows = await PeachesData.create(supabase).listSmoothestPeaches();
+
+  assert.deepEqual(plain(rows), [
+    { rank: 1, customer_id: "customer-1", full_name: "Wendy", earned_points: 200 },
+  ]);
+  assert.deepEqual(plain(supabase.rpcCalls), [
+    {
+      name: "smoothest_peaches",
+      params: { p_months: 3, p_limit: 10 },
     },
   ]);
 });

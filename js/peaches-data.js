@@ -140,6 +140,15 @@
       return data || [];
     }
 
+    async function listSmoothestPeaches({ months = 3, limit = 10 } = {}) {
+      const { data, error } = await supabase.rpc("smoothest_peaches", {
+        p_months: months,
+        p_limit: limit,
+      });
+      throwIfError(error);
+      return data || [];
+    }
+
     async function getCustomerQrToken(customerId) {
       const { data, error } = await supabase
         .from("customer_qr_tokens")
@@ -152,14 +161,15 @@
     }
 
     async function getCustomerHome(customerId) {
-      const [customer, vouchers, transactions, qrToken] = await Promise.all([
+      const [customer, vouchers, transactions, qrToken, leaderboard] = await Promise.all([
         getCustomer(customerId),
         listActiveVouchers(),
         listTransactions(customerId, 20),
         getCustomerQrToken(customerId),
+        listSmoothestPeaches(),
       ]);
       if (customer) customer.qr_token = qrToken;
-      return { customer, vouchers, transactions };
+      return { customer, vouchers, transactions, leaderboard };
     }
 
     async function addPoints({ customerId, delta, note, voucherId, qrToken }) {
@@ -203,6 +213,7 @@
       initials,
       listActiveVouchers,
       listCustomers,
+      listSmoothestPeaches,
       listTransactions,
       redeemVoucher,
     };

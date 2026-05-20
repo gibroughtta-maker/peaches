@@ -1,4 +1,6 @@
 (function () {
+  let customerRealtimeChannel = null;
+
   function moneyDate(value) {
     if (!value) return "";
     return new Date(value).toLocaleDateString("en-GB", {
@@ -86,10 +88,44 @@
     }).join("");
   }
 
+  function renderLeaderboard(rows, customerId) {
+    const safeRows = Array.isArray(rows) ? rows.slice(0, 10) : [];
+    const content = safeRows.length
+      ? safeRows.map((row) => {
+        const current = row.customer_id === customerId;
+        return `
+          <li style="display:grid;grid-template-columns:20px 1fr auto;gap:7px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(240,232,224,.72);${current ? "color:var(--pink);font-weight:600;" : ""}">
+            <span>${Number(row.rank || 0)}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(row.full_name || "Peaches Member")}</span>
+            <span>${Number(row.earned_points || 0)}</span>
+          </li>
+        `;
+      }).join("")
+      : `<li style="padding:6px 0;color:var(--text-light);">No points yet</li>`;
+
+    return `
+      <div style="min-width:150px;max-width:170px;background:var(--white);border:1px solid var(--cream-dark);border-radius:12px;padding:10px 11px;text-align:left;box-shadow:0 2px 12px rgba(212,39,122,.06);">
+        <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--pink);">Smoothest Peach</div>
+        <div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);margin:2px 0 6px;">3 month top 10</div>
+        <ol style="list-style:none;margin:0;padding:0;font-size:10px;color:var(--text-mid);">${content}</ol>
+      </div>
+    `;
+  }
+
   function setText(selector, text) {
     document.querySelectorAll(selector).forEach((node) => {
       node.textContent = text;
     });
+  }
+
+  function startCustomerRealtime(customerId) {
+    if (customerRealtimeChannel || !window.supabase?.channel || !customerId) return;
+    customerRealtimeChannel = window.supabase
+      .channel(`customer-home-${customerId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "transactions" }, () => {
+        window.location.reload();
+      })
+      .subscribe();
   }
 
   async function init() {
@@ -98,7 +134,8 @@
     const user = await window.peachesData.getAuthUser();
     if (!user) return;
 
-    const { customer, vouchers, transactions } = await window.peachesData.getCustomerHome(user.id);
+    const { customer, vouchers, transactions, leaderboard } = await window.peachesData.getCustomerHome(user.id);
+    const leaderboardSource = window.peachesData.listSmoothestPeaches;
     if (!customer) return;
 
     const displayName = customer.full_name || "Customer";
@@ -108,14 +145,17 @@
     const body = document.querySelector("#customer .phone-body");
     if (body) {
       body.innerHTML = `
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:20px;">
           <div>
             <div class="greeting" style="font-size:20px;">Hello, ${escapeHtml(displayName)}</div>
             <div class="greeting-sub" style="margin-bottom:0;">Member since ${escapeHtml(moneyDate(customer.member_since))}</div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--pink);line-height:1;">${balance}</div>
-            <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+            <div style="text-align:right;">
+              <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--pink);line-height:1;">${balance}</div>
+              <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);">Points</div>
+            </div>
+            ${renderLeaderboard(leaderboard, customer.id)}
           </div>
         </div>
         <div style="background:var(--white);border-radius:14px;padding:18px 16px 16px;margin-bottom:20px;box-shadow:0 2px 12px rgba(212,39,122,.07);">
@@ -155,6 +195,7 @@
     }
 
     document.body.dataset.appReady = "true";
+    if (leaderboardSource) startCustomerRealtime(user.id);
   }
 
   document.addEventListener("DOMContentLoaded", () => {

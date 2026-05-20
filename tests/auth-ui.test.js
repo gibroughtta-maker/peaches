@@ -169,6 +169,34 @@ test("staff QR scan verifies a customer before point and voucher actions", () =>
   assert.doesNotMatch(html, /Jessica Mills/);
 });
 
+test("staff scanned customer remains verified after point and voucher actions", () => {
+  const source = read("js/staff-app.js");
+
+  assert.doesNotMatch(source, /selectedVerifiedByScan = false;\s*selectedScanToken = null;\s*await refreshSelectedCustomer\(\);/);
+  assert.match(source, /Customer verified for this session/);
+});
+
+test("smoothest peach leaderboard appears on customer and staff home screens", () => {
+  const customerSource = read("js/customer-app.js");
+  const staffSource = read("js/staff-app.js");
+  const staffHtml = read("staff.html");
+
+  assert.match(customerSource, /Smoothest Peach/);
+  assert.match(staffSource, /Smoothest Peach/);
+  assert.match(staffHtml, /Smoothest Peach/);
+  assert.match(customerSource, /listSmoothestPeaches/);
+  assert.match(staffSource, /listSmoothestPeaches/);
+  assert.match(customerSource, /3 month top 10/);
+  assert.match(staffHtml, /3 month top 10/);
+});
+
+test("staff voucher cards show reward validity", () => {
+  const source = read("js/staff-app.js");
+
+  assert.match(source, /Valid for/);
+  assert.match(source, /valid_months/);
+});
+
 test("signup phone is persisted through Supabase customer trigger", () => {
   const migration = read("supabase/migrations/20260520000002_require_signup_phone.sql");
   const secureQrMigration = read("supabase/migrations/20260520000003_secure_qr_tokens_and_add_points.sql");
@@ -196,4 +224,14 @@ test("QR token generation uses Supabase extension schema explicitly", () => {
 
   assert.match(migration, /extensions\.gen_random_bytes\(24\)/);
   assert.doesNotMatch(migration, /[^.]gen_random_bytes\(24\)/);
+});
+
+test("customer QR tokens stay stable after staff point actions", () => {
+  const migration = read("supabase/migrations/20260521000001_fixed_qr_and_smoothest_peaches.sql");
+
+  assert.match(migration, /create or replace function public\.add_points/);
+  assert.match(migration, /create or replace function public\.smoothest_peaches/);
+  assert.match(migration, /p_months integer default 3/);
+  assert.match(migration, /p_limit integer default 10/);
+  assert.doesNotMatch(migration, /update public\.customer_qr_tokens\s+set token/);
 });

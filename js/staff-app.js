@@ -1,16 +1,19 @@
 (function () {
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const LEADERBOARD_TITLE = "Smoothest Peach";
 
   let profile = null;
   let customers = [];
   let filteredCustomers = [];
   let vouchers = [];
+  let leaderboard = [];
   let selectedCustomer = null;
   let selectedVoucher = null;
   let selectedVerifiedByScan = false;
   let selectedScanToken = null;
   let qrScanner = null;
   let scanning = false;
+  let leaderboardChannel = null;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -50,7 +53,7 @@
   function formatRewardMeta(voucher) {
     const parts = [];
     if (voucher.retail_value) parts.push(`Worth &pound;${Number(voucher.retail_value).toFixed(2)}`);
-    if (voucher.valid_months) parts.push(`${Number(voucher.valid_months)} month voucher`);
+    if (voucher.valid_months) parts.push(`Valid for ${Number(voucher.valid_months)} months`);
     return parts.join(" · ") || escapeHtml(voucher.description || "Peaches reward");
   }
 
@@ -160,6 +163,28 @@
     setText("#stat-top", String(topPoints));
   }
 
+  function renderLeaderboard(nextLeaderboard) {
+    leaderboard = Array.isArray(nextLeaderboard) ? nextLeaderboard.slice(0, 10) : [];
+    const list = document.getElementById("staff-leaderboard-list");
+    if (!list) return;
+    list.setAttribute("aria-label", `${LEADERBOARD_TITLE} 3 month top 10`);
+
+    list.innerHTML = leaderboard.length
+      ? leaderboard.map((row) => `
+        <li class="leaderboard-row">
+          <span class="leaderboard-rank">${Number(row.rank || 0)}</span>
+          <span class="leaderboard-name">${escapeHtml(row.full_name || "Peaches Member")}</span>
+          <span class="leaderboard-points">${Number(row.earned_points || 0)} pts</span>
+        </li>
+      `).join("")
+      : `<li class="leaderboard-empty">No points yet</li>`;
+  }
+
+  async function refreshLeaderboard() {
+    if (!window.peachesData?.listSmoothestPeaches) return;
+    renderLeaderboard(await window.peachesData.listSmoothestPeaches());
+  }
+
   function clientRow(customer) {
     const verified = selectedVerifiedByScan && selectedCustomer?.id === customer.id;
     return `
@@ -198,7 +223,7 @@
   function renderDetail(transactions) {
     if (!selectedCustomer) return;
     const balance = Number(selectedCustomer.points || 0);
-    const verifiedLabel = selectedVerifiedByScan ? "QR verified" : "Not scanned";
+    const verifiedLabel = selectedVerifiedByScan ? "Customer verified for this session" : "Not scanned";
 
     setText("#detail-name", selectedCustomer.full_name);
     setText("#detail-sub", selectedCustomer.phone || "Customer");
@@ -326,15 +351,17 @@
 
   async function refreshSelectedCustomer() {
     if (!selectedCustomer) return;
-    const [freshCustomer, transactions, staffTransactions] = await Promise.all([
+    const [freshCustomer, transactions, staffTransactions, nextLeaderboard] = await Promise.all([
       window.peachesData.getCustomer(selectedCustomer.id),
       window.peachesData.listTransactions(selectedCustomer.id, 20),
       listStaffTransactions(),
+      window.peachesData.listSmoothestPeaches(),
     ]);
 
     selectedCustomer = freshCustomer;
     customers = customers.map((customer) => customer.id === freshCustomer.id ? freshCustomer : customer);
     renderStats(staffTransactions);
+    renderLeaderboard(nextLeaderboard);
     applyCustomerSearch();
     renderDetail(transactions);
   }
@@ -361,14 +388,16 @@
   async function loadData() {
     profile = await window.peachesData.getCurrentProfile();
     renderStaff();
-    const [nextCustomers, nextVouchers, transactions] = await Promise.all([
+    const [nextCustomers, nextVouchers, transactions, nextLeaderboard] = await Promise.all([
       window.peachesData.listCustomers(),
       window.peachesData.listActiveVouchers(),
       listStaffTransactions(),
+      window.peachesData.listSmoothestPeaches(),
     ]);
     customers = nextCustomers;
     vouchers = nextVouchers;
     renderStats(transactions);
+    renderLeaderboard(nextLeaderboard);
     renderCustomers(customers);
 
     const scannedCustomerId = new URLSearchParams(window.location.search).get("customer");
@@ -396,8 +425,6 @@
     try {
       await window.peachesData.addPoints({ customerId: selectedCustomer?.id, delta, note, qrToken: selectedScanToken });
       setStatus("#add-points-status", "Points added.", "success");
-      selectedVerifiedByScan = false;
-      selectedScanToken = null;
       await refreshSelectedCustomer();
       await show("client-detail");
     } catch (error) {
@@ -427,8 +454,6 @@
         qrToken: selectedScanToken,
       });
       setStatus("#redeem-status", "Voucher redeemed.", "success");
-      selectedVerifiedByScan = false;
-      selectedScanToken = null;
       selectedVoucher = null;
       await refreshSelectedCustomer();
       await show("client-detail");
@@ -459,11 +484,22 @@
     });
   }
 
+  function startLeaderboardRealtime() {
+    if (leaderboardChannel || !window.supabase?.channel) return;
+    leaderboardChannel = window.supabase
+      .channel("smoothest-peach-leaderboard")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "transactions" }, () => {
+        refreshLeaderboard().catch((error) => console.error(error));
+      })
+      .subscribe();
+  }
+
   async function init() {
     if (document.body.dataset.requiredRole !== "therapist" || !window.peachesData) return;
     bindEvents();
     try {
       await loadData();
+      startLeaderboardRealtime();
       document.body.dataset.appReady = "true";
     } catch (error) {
       setStatus("#dashboard-status", error.message, "error");

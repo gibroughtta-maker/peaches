@@ -107,6 +107,65 @@
     text-transform:uppercase;
     color:rgba(255,255,255,.7);
   }
+  .leaderboard-card {
+    margin-top:14px;
+    margin-left:auto;
+    max-width:240px;
+    border-radius:14px;
+    background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.18);
+    padding:12px 13px;
+  }
+  .leaderboard-title {
+    font-size:10px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:white;
+  }
+  .leaderboard-window {
+    margin-top:2px;
+    font-size:9px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,.7);
+  }
+  .leaderboard-list {
+    list-style:none;
+    margin:8px 0 0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .leaderboard-row {
+    display:grid;
+    grid-template-columns:20px 1fr auto;
+    gap:7px;
+    align-items:center;
+    color:rgba(255,255,255,.92);
+    font-size:10px;
+  }
+  .leaderboard-rank {
+    width:18px;
+    height:18px;
+    border-radius:999px;
+    background:rgba(255,255,255,.16);
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .leaderboard-name {
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .leaderboard-points {
+    font-weight:600;
+  }
+  .leaderboard-empty {
+    color:rgba(255,255,255,.72);
+    font-size:10px;
+  }
   .content {
     flex:1;
     padding:20px 18px 28px;
@@ -441,6 +500,13 @@
           <div id="staff-meta" class="staff-meta">Checking access</div>
         </div>
       </section>
+      <section class="leaderboard-card" aria-label="Smoothest Peach leaderboard">
+        <div class="leaderboard-title">Smoothest Peach</div>
+        <div class="leaderboard-window">3 month top 10</div>
+        <ol id="staff-leaderboard-list" class="leaderboard-list">
+          <li class="leaderboard-empty">Loading leaderboard...</li>
+        </ol>
+      </section>
     </header>
     <section class="content">
       <button id="open-scanner" class="primary-action" type="button">Scan Client QR</button>
@@ -567,9 +633,9 @@
 <script src="/js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="/js/peaches-data.js?v=20260520-display-names"></script>
+<script src="/js/peaches-data.js?v=20260521-smoothest-peach"></script>
 <script src="/js/supabase-client.js"></script>
 <script src="/js/auth-router.js?v=20260520-signup-phone"></script>
-<script src="/js/staff-app.js?v=20260520-staff-scan"></script>
+<script src="/js/staff-app.js?v=20260521-smoothest-peach"></script>
 </body>
 </html>
