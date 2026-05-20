@@ -32,6 +32,11 @@ test("index renders password login, registration, and reset entry points", () =>
   assert.match(html, /Register/);
   assert.doesNotMatch(html, /Continue with email/);
   assert.match(html, /class="phone-frame"/);
+  assert.match(html, /body > \.logo\s*\{[\s\S]*top:\s*28px/);
+  assert.match(html, /\.tagline\s*\{[\s\S]*top:\s*88px/);
+  assert.match(html, /\.phone-header\s*\{[\s\S]*height:\s*126px/);
+  assert.doesNotMatch(html, /top:\s*96px/);
+  assert.doesNotMatch(html, /top:\s*164px/);
   assert.doesNotMatch(html, /class="status-bar"/);
   assert.doesNotMatch(html, /href="\/customer\.html"/);
   assert.doesNotMatch(html, /href="\/staff\.html"/);
